@@ -1,5 +1,6 @@
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
+import { ThemeToggle } from "@/components/theme-toggle";
 import Link from "next/link";
 
 // Mock Data
@@ -18,7 +19,7 @@ export default function DashboardPage() {
     <div className="p-4 space-y-6">
       <header className="flex items-center justify-between py-2">
         <h1 className="text-2xl font-black tracking-tighter text-foreground">FamilyTrip<span className="text-primary">.OS</span></h1>
-        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800" />
+        <ThemeToggle />
       </header>
 
       <StatusCard
