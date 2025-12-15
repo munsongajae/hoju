@@ -26,12 +26,36 @@ import { ScheduleType } from "./ScheduleList";
 
 interface AddScheduleDialogProps {
     onScheduleAdded: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    initialData?: {
+        title?: string;
+        city?: string;
+        memo?: string;
+    };
+    trigger?: React.ReactNode;
 }
 
-export function AddScheduleDialog({ onScheduleAdded }: AddScheduleDialogProps) {
-    const [open, setOpen] = useState(false);
+export function AddScheduleDialog({
+    onScheduleAdded,
+    open,
+    onOpenChange,
+    initialData,
+    trigger
+}: AddScheduleDialogProps) {
+    const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [tripId, setTripId] = useState<string>("");
+
+    const isControlled = open !== undefined;
+    const finalOpen = isControlled ? open : internalOpen;
+    const setFinalOpen = (val: boolean) => {
+        if (isControlled) {
+            onOpenChange?.(val);
+        } else {
+            setInternalOpen(val);
+        }
+    };
 
     // Form States
     const [day, setDay] = useState("1");
@@ -41,16 +65,29 @@ export function AddScheduleDialog({ onScheduleAdded }: AddScheduleDialogProps) {
     const [type, setType] = useState<ScheduleType>("view");
     const [memo, setMemo] = useState("");
 
+    // Initialize with initialData when opening
+    useEffect(() => {
+        if (finalOpen && initialData) {
+            if (initialData.title) setTitle(initialData.title);
+            if (initialData.city) setCity(initialData.city);
+            if (initialData.memo) setMemo(initialData.memo);
+        } else if (!finalOpen && !isControlled) {
+            // Reset on close if not controlled (or maybe just check open transition)
+            // But usually we want to keep form if user accidentally closes?
+            // Let's reset if it's a fresh open.
+        }
+    }, [finalOpen, initialData, isControlled]);
+
     // Fetch a trip ID (just grab the first one for MVP)
     useEffect(() => {
-        if (open) {
+        if (finalOpen) {
             const fetchTrip = async () => {
                 const { data } = await supabase.from('trips').select('id').limit(1).single();
                 if (data) setTripId(data.id);
             }
             fetchTrip();
         }
-    }, [open]);
+    }, [finalOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -73,10 +110,10 @@ export function AddScheduleDialog({ onScheduleAdded }: AddScheduleDialogProps) {
 
             if (error) throw error;
 
-            // Reset features, keep city/day for convenience
+            // Reset features
             setTitle("");
             setMemo("");
-            setOpen(false);
+            setFinalOpen(false);
             onScheduleAdded();
         } catch (error) {
             console.error("Error adding schedule:", error);
@@ -87,12 +124,18 @@ export function AddScheduleDialog({ onScheduleAdded }: AddScheduleDialogProps) {
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="icon" className="h-8 w-8 rounded-full">
-                    <Plus className="w-5 h-5" />
-                </Button>
-            </DialogTrigger>
+        <Dialog open={finalOpen} onOpenChange={setFinalOpen}>
+            {trigger ? (
+                <DialogTrigger asChild>
+                    {trigger}
+                </DialogTrigger>
+            ) : (
+                <DialogTrigger asChild>
+                    <Button size="icon" className="h-8 w-8 rounded-full">
+                        <Plus className="w-5 h-5" />
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>새 일정 추가</DialogTitle>

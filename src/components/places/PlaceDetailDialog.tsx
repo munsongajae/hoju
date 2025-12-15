@@ -9,9 +9,10 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Star, Baby, MapPin, Pencil } from "lucide-react";
+import { ExternalLink, Star, Baby, MapPin, Pencil, Plus } from "lucide-react";
 import Link from "next/link";
 import { PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
+import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 
 interface PlaceDetailDialogProps {
     place: PlaceData | null;
@@ -47,6 +48,7 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-md">
                 <DialogHeader>
+                    {/* ... keep header ... */}
                     <div className="flex items-center gap-2 mb-2">
                         <Badge variant="secondary" className={categoryColors[place.category]}>
                             {categoryLabels[place.category]}
@@ -83,17 +85,41 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
                     )}
                 </div>
 
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button variant="ghost" onClick={() => onOpenChange(false)}>
+                <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
+                    <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto mt-2 sm:mt-0">
                         닫기
                     </Button>
-                    <Button onClick={() => {
-                        onOpenChange(false);
-                        onEdit(place);
-                    }}>
-                        <Pencil className="w-4 h-4 mr-2" />
-                        수정
-                    </Button>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        <Button
+                            variant="outline"
+                            className="flex-1 sm:flex-none"
+                            onClick={() => {
+                                onOpenChange(false);
+                                onEdit(place);
+                            }}
+                        >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            수정
+                        </Button>
+
+                        <AddScheduleDialog
+                            trigger={
+                                <Button className="flex-1 sm:flex-none">
+                                    <Plus className="w-4 h-4 mr-2" />
+                                    일정에 추가
+                                </Button>
+                            }
+                            initialData={{
+                                title: place.name,
+                                city: place.city,
+                                memo: place.notes
+                            }}
+                            onScheduleAdded={() => {
+                                onOpenChange(false);
+                                alert("일정이 추가되었습니다!");
+                            }}
+                        />
+                    </div>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
