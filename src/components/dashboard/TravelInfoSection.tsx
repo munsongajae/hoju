@@ -87,34 +87,6 @@ export function TravelInfoSection() {
                             <TabsTrigger value="festivals">축제</TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="transport" className="space-y-4 mt-4">
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">
-                                    <Bus className="w-5 h-5 text-blue-500" /> 오팔 카드 (Opal Card)
-                                </h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• 시드니의 티머니! 편의점이나 역에서 쉽게 구매/충전 가능합니다.</p>
-                                    <p>• <strong>트래블월렛/트래블로그 카드</strong>로도 바로 찍고 탈 수 있어요! (추천 👍)</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">🚌 버스 & 트램 (Light Rail)</h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• 승차/하차 시 모두 카드를 태그해야 합니다.</p>
-                                    <p>• 버스는 안내 방송이 잘 안 나오므로 구글 맵을 켜고 가는 것이 좋습니다.</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">🚕 우버 (Uber)</h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• 가족 여행 시 가까운 거리는 우버가 더 저렴하고 편할 수 있습니다.</p>
-                                    <p>• 카시트가 필요한 경우 'Uber Family' 옵션을 확인하세요.</p>
-                                </div>
-                            </div>
-                        </TabsContent>
-
                         <TabsContent value="culture" className="space-y-4 mt-4">
                             <div className="space-y-2">
                                 <h3 className="font-semibold text-lg flex items-center gap-2">🌞 자외선 주의</h3>
@@ -137,6 +109,70 @@ export function TravelInfoSection() {
                                 <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
                                     <p>• 230V, 50Hz를 사용하며 콘센트 모양이 '삼발이' 형태(Type I)입니다.</p>
                                     <p>• 멀티 어댑터를 꼭 챙겨가세요!</p>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="transport" className="space-y-4 mt-4">
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <Bus className="w-5 h-5 text-blue-500" /> 오팔 카드 (Opal Card)
+                                </h3>
+                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                    <p>• 시드니의 티머니! 편의점이나 역에서 쉽게 구매/충전 가능합니다.</p>
+                                    <p>• <strong>트래블월렛/트래블로그 카드</strong>로도 바로 찍고 탈 수 있어요! (추천 👍)</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">💰 요금 정보 (Opal Fares)</h3>
+                                <div className="border rounded-md overflow-hidden text-sm">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-muted">
+                                            <tr>
+                                                <th className="p-2 font-medium">구분 (Cap)</th>
+                                                <th className="p-2 font-medium">어른 (Adult)</th>
+                                                <th className="p-2 font-medium">어린이 (Child)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            <tr>
+                                                <td className="p-2">일일 한도 (평일)</td>
+                                                <td className="p-2">$19.30</td>
+                                                <td className="p-2">$9.65</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="p-2">일일 한도 (주말/공휴일)</td>
+                                                <td className="p-2 text-green-600 font-bold">$9.65</td>
+                                                <td className="p-2 text-green-600 font-bold">$4.80</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="p-2">주간 한도 (Weekly)</td>
+                                                <td className="p-2">$50.00</td>
+                                                <td className="p-2">$25.00</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div className="p-2 bg-muted/50 text-xs text-muted-foreground">
+                                        * 만 4세~15세는 어린이 요금 적용 (만 3세 이하 무료)<br />
+                                        * 일요일에 <strong>$2.80</strong>(일 요금 한도) 행사는 종료되었습니다.
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">🚌 버스 & 트램 (Light Rail)</h3>
+                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                    <p>• 승차/하차 시 모두 카드를 태그해야 합니다.</p>
+                                    <p>• 버스는 안내 방송이 잘 안 나오므로 구글 맵을 켜고 가는 것이 좋습니다.</p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">🚕 우버 (Uber)</h3>
+                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                    <p>• 가족 여행 시 가까운 거리는 우버가 더 저렴하고 편할 수 있습니다.</p>
+                                    <p>• 카시트가 필요한 경우 'Uber Family' 옵션을 확인하세요.</p>
                                 </div>
                             </div>
                         </TabsContent>
