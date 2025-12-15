@@ -43,6 +43,7 @@ export function EditExpenseDialog({
     const [title, setTitle] = useState("");
     const [category, setCategory] = useState<ExpenseCategory>("food");
     const [city, setCity] = useState("시드니");
+    const [currency, setCurrency] = useState<'AUD' | 'KRW'>('AUD');
 
     useEffect(() => {
         if (expense) {
@@ -51,6 +52,7 @@ export function EditExpenseDialog({
             setTitle(expense.title);
             setCategory(expense.category);
             setCity(expense.city || "시드니");
+            setCurrency(expense.currency || 'AUD');
         }
     }, [expense]);
 
@@ -68,6 +70,7 @@ export function EditExpenseDialog({
                     title,
                     category,
                     city,
+                    currency
                 })
                 .eq('id', expense.id);
 
@@ -127,29 +130,56 @@ export function EditExpenseDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="edit-amount">금액 ($)</Label>
+                            <Label>통화</Label>
+                            <div className="flex rounded-md shadow-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrency('AUD')}
+                                    className={`flex-1 px-3 py-2 text-sm font-medium border rounded-l-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'AUD'
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-foreground border-input hover:bg-muted'
+                                        }`}
+                                >
+                                    AUD (A$)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrency('KRW')}
+                                    className={`flex-1 px-3 py-2 text-sm font-medium border-t border-b border-r rounded-r-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'KRW'
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-foreground border-input hover:bg-muted'
+                                        }`}
+                                >
+                                    KRW (₩)
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-amount">금액</Label>
                             <Input
                                 id="edit-amount"
                                 type="number"
-                                step="0.01"
+                                step={currency === 'KRW' ? "100" : "0.01"}
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
+                                placeholder={currency === 'KRW' ? "0" : "0.00"}
                                 required
                             />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="edit-city">도시</Label>
-                            <Select value={city} onValueChange={setCity}>
-                                <SelectTrigger id="edit-city">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="시드니">시드니</SelectItem>
-                                    <SelectItem value="멜버른">멜버른</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
                     </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-city">도시</Label>
+                        <Select value={city} onValueChange={setCity}>
+                            <SelectTrigger id="edit-city">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="시드니">시드니</SelectItem>
+                                <SelectItem value="멜버른">멜버른</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
 
                     <div className="grid gap-2">
                         <Label htmlFor="edit-title">내용</Label>
@@ -196,6 +226,6 @@ export function EditExpenseDialog({
                     </DialogFooter>
                 </form>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }

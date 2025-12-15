@@ -7,6 +7,7 @@ import { DollarSign, Coffee, Bus, Bed, Ticket } from "lucide-react";
 
 export type ExpenseCategory = "food" | "transport" | "lodging" | "activity" | "shopping" | "etc";
 
+
 export interface ExpenseData {
     id: string;
     date: Date;
@@ -14,6 +15,7 @@ export interface ExpenseData {
     category: ExpenseCategory;
     title: string;
     city: string;
+    currency?: 'AUD' | 'KRW';
 }
 
 const categoryIcons: Record<ExpenseCategory, any> = {
@@ -47,6 +49,7 @@ export function ExpenseList({ expenses, onItemClick }: ExpenseListProps) {
         <div className="space-y-3">
             {sortedExpenses.map((expense) => {
                 const Icon = categoryIcons[expense.category];
+                const isKRW = expense.currency === 'KRW';
 
                 return (
                     <div
@@ -64,11 +67,12 @@ export function ExpenseList({ expenses, onItemClick }: ExpenseListProps) {
                                     <span>{format(expense.date, "MM/dd")}</span>
                                     <span>·</span>
                                     <span>{expense.city}</span>
+                                    {isKRW && <span className="text-orange-600 dark:text-orange-400 font-medium ml-1">KRW</span>}
                                 </div>
                             </div>
                         </div>
                         <div className="font-semibold text-right">
-                            ${expense.amount.toLocaleString()}
+                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
                         </div>
                     </div>
                 );

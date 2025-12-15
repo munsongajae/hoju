@@ -58,12 +58,14 @@ export function AddExpenseDialog({
         }
     };
 
+
     // Form States
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [amount, setAmount] = useState("");
     const [title, setTitle] = useState("");
     const [category, setCategory] = useState<ExpenseCategory>("food");
     const [city, setCity] = useState("시드니");
+    const [currency, setCurrency] = useState<'AUD' | 'KRW'>('AUD');
 
     // Initialize with initialData when opening
     useEffect(() => {
@@ -103,15 +105,16 @@ export function AddExpenseDialog({
                 title,
                 category,
                 city,
+                currency
             }]);
 
             if (error) throw error;
 
             setTitle("");
             setAmount("");
-            if (!isControlled) setInternalOpen(false); // Only close if internal
-            // If controlled, usually parent closes, or we request close?
-            // Usually we request close.
+            // Don't reset currency, potentially useful to keep last selection? Or reset to AUD.
+            // setCurrency('AUD'); 
+            if (!isControlled) setInternalOpen(false);
             setFinalOpen(false);
             onExpenseAdded();
         } catch (error) {
@@ -154,40 +157,55 @@ export function AddExpenseDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="amount">금액 ($)</Label>
+                            <Label>통화</Label>
+                            <div className="flex rounded-md shadow-sm">
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrency('AUD')}
+                                    className={`flex-1 px-3 py-2 text-sm font-medium border rounded-l-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'AUD'
+                                            ? 'bg-primary text-primary-foreground border-primary'
+                                            : 'bg-background text-foreground border-input hover:bg-muted'
+                                        }`}
+                                >
+                                    AUD (A$)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setCurrency('KRW')}
+                                    className={`flex-1 px-3 py-2 text-sm font-medium border-t border-b border-r rounded-r-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'KRW'
+                                            ? 'bg-primary text-primary-foreground border-primary'
+                                            : 'bg-background text-foreground border-input hover:bg-muted'
+                                        }`}
+                                >
+                                    KRW (₩)
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="amount">금액</Label>
                             <Input
                                 id="amount"
                                 type="number"
-                                step="0.01"
+                                step={currency === 'KRW' ? "100" : "0.01"}
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
-                                placeholder="0.00"
+                                placeholder={currency === 'KRW' ? "0" : "0.00"}
                                 required
                             />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="city">도시</Label>
-                            <Select value={city} onValueChange={setCity}>
-                                <SelectTrigger id="city">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="시드니">시드니</SelectItem>
-                                    <SelectItem value="멜버른">멜버른</SelectItem>
-                                </SelectContent>
-                            </Select>
                         </div>
                     </div>
 
                     <div className="grid gap-2">
-                        <Label htmlFor="title">내용</Label>
-                        <Input
-                            id="title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="예: 점심 식사"
-                            required
-                        />
+                        <Label htmlFor="city">도시</Label>
+                        <Select value={city} onValueChange={setCity}>
+                            <SelectTrigger id="city">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="시드니">시드니</SelectItem>
+                                <SelectItem value="멜버른">멜버른</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="grid gap-2">
@@ -205,6 +223,17 @@ export function AddExpenseDialog({
                                 <SelectItem value="etc">기타</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="title">내용</Label>
+                        <Input
+                            id="title"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="예: 점심 식사"
+                            required
+                        />
                     </div>
 
                     <DialogFooter>
