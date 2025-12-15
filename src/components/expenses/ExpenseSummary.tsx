@@ -49,7 +49,9 @@ export function ExpenseSummary({ expenses }: ExpenseSummaryProps) {
     // Let's use rate or default 900.
     const safeRate = exchangeRate || 900;
 
-    // Calculate total roughly in AUD for percentages
+
+    // Calculate total roughly in KRW for expected total display
+    const totalEquivalentKRW = totalKRW + (totalAUD * safeRate);
     const totalEquivalentAUD = totalAUD + (totalKRW / safeRate);
 
     const byCategory = expenses.reduce((acc, item) => {
@@ -82,11 +84,11 @@ export function ExpenseSummary({ expenses }: ExpenseSummaryProps) {
                     {totalKRW > 0 && (
                         <div className="text-right">
                             <div className="text-sm font-medium text-muted-foreground flex items-center justify-end gap-1">
-                                <span>예상 합계 (AUD)</span>
+                                <span>예상 합계 (KRW)</span>
                                 {loadingRate ? <RefreshCw className="w-3 h-3 animate-spin" /> : null}
                             </div>
                             <div className="text-lg font-bold mt-1 text-muted-foreground">
-                                ≈ A$ {Math.round(totalEquivalentAUD).toLocaleString()}
+                                ≈ ₩ {Math.round(totalEquivalentKRW).toLocaleString()}
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
                                 {exchangeRate ? `환율: 1 AUD = ${exchangeRate} KRW` : '기준: 1 AUD = 900 KRW'}

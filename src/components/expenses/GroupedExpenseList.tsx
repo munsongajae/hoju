@@ -61,7 +61,13 @@ export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedE
         <div className="space-y-6">
             {sortedKeys.map((key) => {
                 const items = grouped[key];
-                const total = items.reduce((sum, item) => sum + item.amount, 0);
+                const totalAUD = items
+                    .filter(e => !e.currency || e.currency === 'AUD')
+                    .reduce((sum, item) => sum + item.amount, 0);
+                const totalKRW = items
+                    .filter(e => e.currency === 'KRW')
+                    .reduce((sum, item) => sum + item.amount, 0);
+
                 const keyDate = new Date(key);
 
                 let headerText: string;
@@ -76,36 +82,45 @@ export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedE
                     <div key={key} className="space-y-2">
                         <div className="flex items-center justify-between sticky top-0 bg-background py-2 border-b">
                             <h3 className="font-semibold text-sm">{headerText}</h3>
-                            <span className="text-sm font-bold text-primary">${total.toLocaleString()}</span>
+                            <div className="text-right">
+                                <span className="text-sm font-bold text-primary block">A$ {totalAUD.toLocaleString()}</span>
+                                {totalKRW > 0 && <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 block">+ ₩ {totalKRW.toLocaleString()}</span>}
+                            </div>
                         </div>
                         <div className="space-y-2">
-                            {items.map((expense) => (
-                                <div
-                                    key={expense.id}
-                                    className="flex items-center justify-between p-3 bg-card rounded-lg border shadow-sm cursor-pointer hover:bg-muted/50 transition-colors"
-                                    onClick={() => onItemClick?.(expense)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <span className={`text-xs px-2 py-0.5 rounded-full ${categoryColors[expense.category]}`}>
-                                            {categoryLabels[expense.category]}
-                                        </span>
-                                        <div>
-                                            <p className="font-medium text-sm">{expense.title}</p>
-                                            {viewMode === "weekly" && (
-                                                <p className="text-xs text-muted-foreground">
-                                                    {format(expense.date, "M/d")} · {expense.city}
-                                                </p>
-                                            )}
-                                            {viewMode === "daily" && (
-                                                <p className="text-xs text-muted-foreground">{expense.city}</p>
-                                            )}
+                            {items.map((expense) => {
+                                const isKRW = expense.currency === 'KRW';
+                                return (
+                                    <div
+                                        key={expense.id}
+                                        className="flex items-center justify-between p-3 bg-card rounded-lg border shadow-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                                        onClick={() => onItemClick?.(expense)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${categoryColors[expense.category]}`}>
+                                                {categoryLabels[expense.category]}
+                                            </span>
+                                            <div>
+                                                <p className="font-medium text-sm">{expense.title}</p>
+                                                {viewMode === "weekly" && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {format(expense.date, "M/d")} · {expense.city}
+                                                    </p>
+                                                )}
+                                                {viewMode === "daily" && (
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <span>{expense.city}</span>
+                                                        {isKRW && <span className="text-orange-600 dark:text-orange-400 font-medium">KRW</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="font-semibold text-right">
+                                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
                                         </div>
                                     </div>
-                                    <div className="font-semibold text-right">
-                                        ${expense.amount.toLocaleString()}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                 );
