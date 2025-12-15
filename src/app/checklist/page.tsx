@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ChecklistGroup, ChecklistGroupData, ChecklistItemData } from "@/components/checklist/ChecklistGroup";
+import { ManageChecklistDialog } from "@/components/checklist/ManageChecklistDialog";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -78,6 +79,31 @@ export default function ChecklistPage() {
         }
     };
 
+    const handleDelete = async (itemId: string) => {
+        if (!confirm("이 항목을 삭제하시겠습니까?")) return;
+
+        // 1. Optimistic UI Update
+        setGroups((prev) =>
+            prev.map((g) => ({
+                ...g,
+                items: g.items.filter((i) => i.id !== itemId)
+            })).filter(g => g.items.length > 0) // Remove empty groups
+        );
+
+        // 2. Supabase Delete
+        try {
+            const { error } = await supabase
+                .from("checklists")
+                .delete()
+                .eq("id", itemId);
+
+            if (error) throw error;
+        } catch (err) {
+            console.error("Failed to delete item:", err);
+            fetchChecklists();
+        }
+    };
+
     return (
         <div className="p-4 pb-24 space-y-4">
             <div className="flex items-center justify-between mb-2">
@@ -108,10 +134,17 @@ export default function ChecklistPage() {
                             key={group.title}
                             group={group}
                             onToggle={handleToggle}
+                            onDelete={handleDelete}
                         />
                     ))}
                 </div>
             )}
+
+
+            <ManageChecklistDialog
+                onSuccess={fetchChecklists}
+                categories={groups.map(g => g.title)}
+            />
         </div>
     );
 }
