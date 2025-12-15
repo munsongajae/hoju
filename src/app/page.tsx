@@ -116,9 +116,9 @@ export default function DashboardPage() {
           <span className="block text-2xl mb-1">✅</span>
           <span className="text-sm font-medium">체크리스트</span>
         </Link>
-        <Link href="/expenses" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
-          <span className="block text-2xl mb-1">💰</span>
-          <span className="text-sm font-medium">지출 기록</span>
+        <Link href="/diary" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
+          <span className="block text-2xl mb-1">📔</span>
+          <span className="text-sm font-medium">오늘 일기</span>
         </Link>
       </div>
     </div>
