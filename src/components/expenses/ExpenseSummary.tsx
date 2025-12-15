@@ -66,7 +66,7 @@ export function ExpenseSummary({ expenses }: ExpenseSummaryProps) {
                         </div>
                         {exchangeRate && (
                             <div className="text-xs text-muted-foreground mt-1">
-                                적용 환율: {exchangeRate.toLocaleString()}원 (Investing.com)
+                                적용 환율: {exchangeRate.toLocaleString()}원 (Yahoo Finance)
                             </div>
                         )}
                     </div>
