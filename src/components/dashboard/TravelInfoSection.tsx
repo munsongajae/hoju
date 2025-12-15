@@ -142,35 +142,69 @@ export function TravelInfoSection() {
                         </TabsContent>
 
                         <TabsContent value="festivals" className="space-y-4 mt-4">
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">🎭 시드니 페스티벌 (Sydney Festival)</h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• <strong>1월 8일 ~ 1월 25일</strong></p>
-                                    <p>• 도시 전체가 예술 무대로 변신합니다! 오페라하우스와 하이드파크 등에서 연극, 무용, 음악 공연이 열리며 무료 야외 이벤트도 많습니다.</p>
+                            {/* 기존 축제 섹션 */}
+                            <div className="space-y-4">
+                                <h3 className="font-bold text-xl flex items-center gap-2 border-b pb-2">🎉 주요 축제</h3>
+
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🎭 시드니 페스티벌 (Sydney Festival)</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>1월 8일 ~ 1월 25일</strong></p>
+                                        <p>• 도시 전체가 예술 무대로 변신합니다! 오페라하우스와 하이드파크 등에서 연극, 무용, 음악 공연이 열리며 무료 야외 이벤트도 많습니다.</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🇦🇺 오스트레일리아 데이 (Australia Day)</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>1월 26일</strong></p>
+                                        <p>• 하버 브리지와 오페라하우스 주변에서 하루 종일 축제가 열립니다. 아침 원주민 의식부터 낮에는 선박 경주, 밤에는 불꽃놀이까지!</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🧧 설날 축제 (Lunar New Year)</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>2월 초중순 (차이나타운 & 달링하버)</strong></p>
+                                        <p>• 아시아 밖에서 가장 큰 설날 축제 중 하나입니다. 거대한 등불 전시와 사자춤, 드래곤 보트 경주(달링하버)를 놓치지 마세요.</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🏳️‍🌈 마디그라 (Mardi Gras)</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>2월 15일 ~ 3월 1일</strong></p>
+                                        <p>• 세계 최대의 LGBTQIA+ 축제입니다. 2월 중순 'Fair Day'를 시작으로 축제 분위기가 고조되며, 2월 말/3월 초 퍼레이드가 하이라이트입니다.</p>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">🇦🇺 오스트레일리아 데이 (Australia Day)</h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• <strong>1월 26일</strong></p>
-                                    <p>• 하버 브리지와 오페라하우스 주변에서 하루 종일 축제가 열립니다. 아침 원주민 의식부터 낮에는 선박 경주, 밤에는 불꽃놀이까지!</p>
-                                </div>
-                            </div>
+                            {/* 새로운 스포츠 & 문화 섹션 */}
+                            <div className="space-y-4 pt-4">
+                                <h3 className="font-bold text-xl flex items-center gap-2 border-b pb-2">⚽ 스포츠 & 문화 (Sports & Culture)</h3>
 
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">🧧 설날 축제 (Lunar New Year)</h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• <strong>2월 초중순 (차이나타운 & 달링하버)</strong></p>
-                                    <p>• 아시아 밖에서 가장 큰 설날 축제 중 하나입니다. 거대한 등불 전시와 사자춤, 드래곤 보트 경주(달링하버)를 놓치지 마세요.</p>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🎾 유나이티드 컵 (United Cup Tennis)</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>12월 27일 ~ 1월 5일 (Ken Rosewall Arena)</strong></p>
+                                        <p>• 호주 오픈의 전초전! 세계적인 테니스 스타들을 가까이서 볼 수 있는 기회입니다.</p>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="space-y-2">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">🏳️‍🌈 마디그라 (Mardi Gras)</h3>
-                                <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
-                                    <p>• <strong>2월 15일 ~ 3월 1일</strong></p>
-                                    <p>• 세계 최대의 LGBTQIA+ 축제입니다. 2월 중순 'Fair Day'를 시작으로 축제 분위기가 고조되며, 2월 말/3월 초 퍼레이드가 하이라이트입니다.</p>
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🏏 핑크 테스트 크리켓 (The Pink Test)</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>1월 초 (Sydney Cricket Ground)</strong></p>
+                                        <p>• 호주 대표 스포츠 크리켓! SCG가 핑크색으로 물드는 장관을 볼 수 있습니다.</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <h3 className="font-semibold text-lg flex items-center gap-2">🎼 백 투 더 퓨처 뮤지컬</h3>
+                                    <div className="text-sm text-muted-foreground bg-muted p-3 rounded-md space-y-2">
+                                        <p>• <strong>~ 1월 25일까지 (Sydney Lyric Theatre)</strong></p>
+                                        <p>• 전설적인 영화가 무대로! 가족 모두가 즐길 수 있는 신나는 뮤지컬입니다.</p>
+                                    </div>
                                 </div>
                             </div>
                         </TabsContent>
