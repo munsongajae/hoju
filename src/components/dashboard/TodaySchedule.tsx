@@ -3,6 +3,15 @@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+} from "@/components/ui/dialog";
+import { Clock, Tag, AlignLeft } from "lucide-react";
 
 interface ScheduleItem {
     id: string;
@@ -10,6 +19,7 @@ interface ScheduleItem {
     title: string;
     type: "view" | "food" | "move" | "rest" | "shop" | "kids";
     completed?: boolean;
+    memo?: string;
 }
 
 interface TodayScheduleProps {
@@ -26,7 +36,24 @@ const typeColors: Record<string, string> = {
     kids: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
 };
 
+const typeLabels: Record<string, string> = {
+    view: "관광",
+    food: "식사",
+    move: "이동",
+    rest: "휴식",
+    shop: "쇼핑",
+    kids: "키즈",
+};
+
 export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
+    const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+    const handleItemClick = (item: ScheduleItem) => {
+        setSelectedItem(item);
+        setIsDialogOpen(true);
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -42,7 +69,8 @@ export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
                 {items.map((item, index) => (
                     <div
                         key={item.id}
-                        className="group relative flex gap-x-4 rounded-xl border bg-card p-4 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
+                        className="group relative flex gap-x-4 rounded-xl border bg-card p-4 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer hover:shadow-sm"
+                        onClick={() => handleItemClick(item)}
                     >
                         <div
                             className={cn(
@@ -67,6 +95,11 @@ export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
                                 <Badge variant="secondary" className={cn("text-[10px] font-medium border-0", typeColors[item.type])}>
                                     {item.type.toUpperCase()}
                                 </Badge>
+                                {item.memo && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <AlignLeft className="w-3 h-3" /> 메모
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -75,6 +108,43 @@ export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
                     <p className="text-center text-muted-foreground py-8">오늘 예정된 일정이 없습니다.</p>
                 )}
             </div>
+
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-xl">{selectedItem?.title}</DialogTitle>
+                        <DialogDescription>일정 상세 정보입니다.</DialogDescription>
+                    </DialogHeader>
+
+                    {selectedItem && (
+                        <div className="space-y-4 mt-2">
+                            <div className="flex items-center gap-2 text-sm">
+                                <Clock className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium text-muted-foreground">시간:</span>
+                                <span>{selectedItem.time}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-sm">
+                                <Tag className="w-4 h-4 text-muted-foreground" />
+                                <span className="font-medium text-muted-foreground">유형:</span>
+                                <Badge variant="secondary" className={cn("text-xs font-medium border-0", typeColors[selectedItem.type])}>
+                                    {typeLabels[selectedItem.type] || selectedItem.type.toUpperCase()}
+                                </Badge>
+                            </div>
+
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-sm">
+                                    <AlignLeft className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">메모:</span>
+                                </div>
+                                <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
+                                    {selectedItem.memo || "메모가 없습니다."}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

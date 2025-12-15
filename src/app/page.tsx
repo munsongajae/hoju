@@ -24,6 +24,7 @@ interface ScheduleItem {
   time: string;
   title: string;
   type: "view" | "food" | "move" | "rest" | "shop" | "kids";
+  memo?: string;
 }
 
 export default function DashboardPage() {
@@ -65,6 +66,7 @@ export default function DashboardPage() {
               time: item.start_time ? format(parseISO(`2000-01-01T${item.start_time}`), "hh:mm a") : "",
               title: item.title,
               type: item.type,
+              memo: item.memo,
             }));
             setTodaySchedule(formattedSchedule);
           }
