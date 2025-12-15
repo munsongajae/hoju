@@ -25,12 +25,38 @@ import { ExpenseCategory } from "./ExpenseList";
 
 interface AddExpenseDialogProps {
     onExpenseAdded: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    initialData?: {
+        date?: string;
+        title?: string;
+        category?: ExpenseCategory;
+        city?: string;
+        amount?: number;
+    };
+    trigger?: React.ReactNode;
 }
 
-export function AddExpenseDialog({ onExpenseAdded }: AddExpenseDialogProps) {
-    const [open, setOpen] = useState(false);
+export function AddExpenseDialog({
+    onExpenseAdded,
+    open,
+    onOpenChange,
+    initialData,
+    trigger
+}: AddExpenseDialogProps) {
+    const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [tripId, setTripId] = useState<string>("");
+
+    const isControlled = open !== undefined;
+    const finalOpen = isControlled ? open : internalOpen;
+    const setFinalOpen = (val: boolean) => {
+        if (isControlled) {
+            onOpenChange?.(val);
+        } else {
+            setInternalOpen(val);
+        }
+    };
 
     // Form States
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -39,17 +65,27 @@ export function AddExpenseDialog({ onExpenseAdded }: AddExpenseDialogProps) {
     const [category, setCategory] = useState<ExpenseCategory>("food");
     const [city, setCity] = useState("시드니");
 
+    // Initialize with initialData when opening
     useEffect(() => {
-        if (open) {
+        if (finalOpen && initialData) {
+            if (initialData.date) setDate(initialData.date);
+            if (initialData.title) setTitle(initialData.title);
+            if (initialData.category) setCategory(initialData.category);
+            if (initialData.city) setCity(initialData.city);
+            if (initialData.amount) setAmount(initialData.amount.toString());
+        }
+    }, [finalOpen, initialData, isControlled]);
+
+    useEffect(() => {
+        if (finalOpen) {
             // Ideally we fetch current trip from context or URL, here just grab first trip
-            // Similar logic to Schedule dialog
             const fetchTrip = async () => {
                 const { data } = await supabase.from('trips').select('id').limit(1).single();
                 if (data) setTripId(data.id);
             }
             fetchTrip();
         }
-    }, [open]);
+    }, [finalOpen]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -73,7 +109,10 @@ export function AddExpenseDialog({ onExpenseAdded }: AddExpenseDialogProps) {
 
             setTitle("");
             setAmount("");
-            setOpen(false);
+            if (!isControlled) setInternalOpen(false); // Only close if internal
+            // If controlled, usually parent closes, or we request close?
+            // Usually we request close.
+            setFinalOpen(false);
             onExpenseAdded();
         } catch (error) {
             console.error("Error adding expense:", error);
@@ -84,12 +123,18 @@ export function AddExpenseDialog({ onExpenseAdded }: AddExpenseDialogProps) {
     };
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button size="icon" className="h-8 w-8 rounded-full">
-                    <Plus className="w-5 h-5" />
-                </Button>
-            </DialogTrigger>
+        <Dialog open={finalOpen} onOpenChange={setFinalOpen}>
+            {trigger ? (
+                <DialogTrigger asChild>
+                    {trigger}
+                </DialogTrigger>
+            ) : (
+                <DialogTrigger asChild>
+                    <Button size="icon" className="h-8 w-8 rounded-full">
+                        <Plus className="w-5 h-5" />
+                    </Button>
+                </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                     <DialogTitle>새 지출 추가</DialogTitle>

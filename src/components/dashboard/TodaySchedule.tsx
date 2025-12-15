@@ -11,7 +11,10 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Clock, Tag, AlignLeft } from "lucide-react";
+import { Clock, Tag, AlignLeft, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
+import { ExpenseCategory } from "@/components/expenses/ExpenseList";
 
 interface ScheduleItem {
     id: string;
@@ -25,6 +28,7 @@ interface ScheduleItem {
 interface TodayScheduleProps {
     items: ScheduleItem[];
     dayNumber?: number;
+    currentCity?: string;
 }
 
 const typeColors: Record<string, string> = {
@@ -45,7 +49,18 @@ const typeLabels: Record<string, string> = {
     kids: "키즈",
 };
 
-export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
+const mapToExpenseCategory = (type: string): ExpenseCategory => {
+    switch (type) {
+        case 'food': return 'food';
+        case 'move': return 'transport';
+        case 'shop': return 'shopping';
+        case 'view':
+        case 'kids': return 'activity';
+        default: return 'etc';
+    }
+};
+
+export function TodaySchedule({ items, dayNumber, currentCity }: TodayScheduleProps) {
     const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -140,6 +155,26 @@ export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
                                 <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
                                     {selectedItem.memo || "메모가 없습니다."}
                                 </div>
+                            </div>
+
+                            <div className="flex justify-end pt-2">
+                                <AddExpenseDialog
+                                    trigger={
+                                        <Button size="sm" variant="outline" className="gap-1">
+                                            <Plus className="w-3.5 h-3.5" />
+                                            비용 추가
+                                        </Button>
+                                    }
+                                    initialData={{
+                                        title: selectedItem.title,
+                                        date: new Date().toISOString().split('T')[0],
+                                        category: mapToExpenseCategory(selectedItem.type),
+                                        city: currentCity
+                                    }}
+                                    onExpenseAdded={() => {
+                                        alert('지출이 추가되었습니다.');
+                                    }}
+                                />
                             </div>
                         </div>
                     )}

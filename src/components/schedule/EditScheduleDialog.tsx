@@ -19,9 +19,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ScheduleType, ScheduleItemData } from "./ScheduleList";
+import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
+import { ExpenseCategory } from "@/components/expenses/ExpenseList";
 
 interface EditScheduleDialogProps {
     schedule: ScheduleItemData | null;
@@ -29,6 +31,17 @@ interface EditScheduleDialogProps {
     onOpenChange: (open: boolean) => void;
     onScheduleUpdated: () => void;
 }
+
+const mapToExpenseCategory = (type: string): ExpenseCategory => {
+    switch (type) {
+        case 'food': return 'food';
+        case 'move': return 'transport';
+        case 'shop': return 'shopping';
+        case 'view':
+        case 'kids': return 'activity';
+        default: return 'etc';
+    }
+};
 
 export function EditScheduleDialog({
     schedule,
@@ -206,21 +219,40 @@ export function EditScheduleDialog({
                         />
                     </div>
 
-                    <DialogFooter className="flex justify-between sm:justify-between gap-2">
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
                         <Button
                             type="button"
                             variant="destructive"
                             onClick={handleDelete}
                             disabled={deleting}
-                            className="mr-auto"
+                            className="w-full sm:w-auto mt-2 sm:mt-0"
                         >
                             {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
                             삭제
                         </Button>
-                        <Button type="submit" disabled={loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            저장하기
-                        </Button>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                            <AddExpenseDialog
+                                trigger={
+                                    <Button type="button" variant="outline" className="flex-1 sm:flex-none">
+                                        <Plus className="mr-2 h-4 w-4" />
+                                        비용 추가
+                                    </Button>
+                                }
+                                initialData={{
+                                    title,
+                                    date: new Date().toISOString().split('T')[0], // Default to today
+                                    category: mapToExpenseCategory(type),
+                                    city
+                                }}
+                                onExpenseAdded={() => {
+                                    alert('지출이 추가되었습니다.');
+                                }}
+                            />
+                            <Button type="submit" disabled={loading} className="flex-1 sm:flex-none">
+                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                저장하기
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>

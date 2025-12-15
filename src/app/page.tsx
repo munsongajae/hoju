@@ -111,7 +111,7 @@ export default function DashboardPage() {
         familyCount={familyCount}
       />
 
-      <TodaySchedule items={todaySchedule} dayNumber={currentDayNumber} />
+      <TodaySchedule items={todaySchedule} dayNumber={currentDayNumber} currentCity={currentCity} />
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 gap-3 mt-6">
