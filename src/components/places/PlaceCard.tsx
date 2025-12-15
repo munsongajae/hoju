@@ -44,47 +44,32 @@ const categoryLabels: Record<PlaceCategory, string> = {
 export function PlaceCard({ place, onClick }: PlaceCardProps) {
     return (
         <Card
-            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
             onClick={onClick}
         >
-            <CardContent className="p-4 space-y-2">
-                <div className="flex items-start justify-between">
-                    <div>
-                        <Badge variant="secondary" className={categoryColors[place.category]}>
-                            {categoryLabels[place.category]}
-                        </Badge>
+            <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Badge variant="secondary" className={categoryColors[place.category]}>
+                        {categoryLabels[place.category]}
+                    </Badge>
+                    <div className="space-y-1">
+                        <h3 className="font-bold text-base leading-none">{place.name}</h3>
+                        {place.isKidFriendly && (
+                            <div className="flex items-center text-xs text-green-600 dark:text-green-400">
+                                <Baby className="w-3 h-3 mr-0.5" />
+                                <span className="text-[10px]">아이 추천</span>
+                            </div>
+                        )}
                     </div>
-                    {place.rating && (
-                        <div className="flex items-center text-amber-500 text-sm font-medium">
-                            <Star className="w-3.5 h-3.5 fill-current mr-1" />
-                            {place.rating}
-                        </div>
-                    )}
                 </div>
 
-                <h3 className="font-bold text-lg leading-tight">{place.name}</h3>
-
-                {place.isKidFriendly && (
-                    <div className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-50 px-2 py-0.5 rounded-full dark:bg-green-900/20 dark:text-green-400">
-                        <Baby className="w-3 h-3" />
-                        아이 추천
+                {place.rating && (
+                    <div className="flex items-center text-amber-500 font-medium bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-md text-xs">
+                        <Star className="w-3 h-3 fill-current mr-1" />
+                        {place.rating}
                     </div>
                 )}
-
-                <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
-                    {place.notes}
-                </p>
             </CardContent>
-            <CardFooter className="p-4 pt-0">
-                {place.googleMapUrl && (
-                    <Button variant="outline" size="sm" className="w-full h-8 text-xs gap-2" asChild>
-                        <Link href={place.googleMapUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="w-3 h-3" />
-                            Google Map
-                        </Link>
-                    </Button>
-                )}
-            </CardFooter>
         </Card>
     );
 }

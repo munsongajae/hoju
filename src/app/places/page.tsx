@@ -5,6 +5,7 @@ import { PlaceCard, PlaceData, PlaceCategory } from "@/components/places/PlaceCa
 import { CategoryFilter } from "@/components/places/CategoryFilter";
 import { AddPlaceDialog } from "@/components/places/AddPlaceDialog";
 import { EditPlaceDialog } from "@/components/places/EditPlaceDialog";
+import { PlaceDetailDialog } from "@/components/places/PlaceDetailDialog";
 import { Loader2 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -16,6 +17,10 @@ export default function PlacesPage() {
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<PlaceCategory | "all">("all");
     const [showKidFriendlyOnly, setShowKidFriendlyOnly] = useState(false);
+
+    // Detail Dialog State
+    const [selectedPlace, setSelectedPlace] = useState<PlaceData | null>(null);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
     // Edit Dialog State
     const [editingPlace, setEditingPlace] = useState<PlaceData | null>(null);
@@ -95,8 +100,8 @@ export default function PlacesPage() {
                             key={place.id}
                             place={place}
                             onClick={() => {
-                                setEditingPlace(place);
-                                setEditDialogOpen(true);
+                                setSelectedPlace(place);
+                                setDetailDialogOpen(true);
                             }}
                         />
                     ))}
@@ -107,6 +112,16 @@ export default function PlacesPage() {
                     )}
                 </div>
             )}
+
+            <PlaceDetailDialog
+                place={selectedPlace}
+                open={detailDialogOpen}
+                onOpenChange={setDetailDialogOpen}
+                onEdit={(place) => {
+                    setEditingPlace(place);
+                    setEditDialogOpen(true);
+                }}
+            />
 
             <EditPlaceDialog
                 place={editingPlace}
