@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, MapPin, CreditCard, Menu } from "lucide-react";
+import { Home, Calendar, MapPin, CreditCard, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function MobileNav() {
@@ -28,6 +28,11 @@ export function MobileNav() {
             label: "지출",
             href: "/expenses",
             icon: CreditCard,
+        },
+        {
+            label: "설정",
+            href: "/settings",
+            icon: Settings,
         },
     ];
 

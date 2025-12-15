@@ -8,27 +8,31 @@ interface ScheduleItem {
     id: string;
     time: string;
     title: string;
-    type: "view" | "food" | "move" | "rest" | "shop";
+    type: "view" | "food" | "move" | "rest" | "shop" | "kids";
     completed?: boolean;
 }
 
 interface TodayScheduleProps {
     items: ScheduleItem[];
+    dayNumber?: number;
 }
 
-const typeColors = {
+const typeColors: Record<string, string> = {
     view: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
     food: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
     move: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
     rest: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
     shop: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+    kids: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
 };
 
-export function TodaySchedule({ items }: TodayScheduleProps) {
+export function TodaySchedule({ items, dayNumber }: TodayScheduleProps) {
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold tracking-tight">오늘 일정</h2>
+                <h2 className="text-lg font-bold tracking-tight">
+                    {dayNumber ? `Day ${dayNumber} 일정` : "오늘 일정"}
+                </h2>
                 <Badge variant="outline" className="font-normal">
                     {items.length}개 활동
                 </Badge>
