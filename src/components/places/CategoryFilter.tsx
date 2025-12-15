@@ -9,6 +9,8 @@ interface CategoryFilterProps {
     categoryCounts?: Record<string, number>;
     selectedCategory: PlaceCategory | "all";
     onSelectCategory: (category: PlaceCategory | "all") => void;
+    selectedCity: string;
+    onSelectCity: (city: string) => void;
     showKidFriendlyOnly: boolean;
     onToggleKidFriendly: () => void;
 }
@@ -21,6 +23,7 @@ const LABELS: Record<string, string> = {
     medical: "의료",
     play: "놀이",
     museum: "전시",
+    market: "시장",
 };
 
 export function CategoryFilter({
@@ -28,15 +31,33 @@ export function CategoryFilter({
     categoryCounts,
     selectedCategory,
     onSelectCategory,
+    selectedCity,
+    onSelectCity,
     showKidFriendlyOnly,
     onToggleKidFriendly,
 }: CategoryFilterProps) {
     const totalCount = categoryCounts ? Object.values(categoryCounts).reduce((a, b) => a + b, 0) : 0;
+    const cities = ["전체", "시드니", "멜버른"];
+
     return (
-        <div className="space-y-3">
+        <div className="space-y-4">
+            <div className="flex flex-wrap gap-2 pb-2 border-b">
+                {cities.map((city) => (
+                    <Button
+                        key={city}
+                        variant={selectedCity === city ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => onSelectCity(city)}
+                        className="rounded-full text-xs h-7 px-3 font-semibold"
+                    >
+                        {city}
+                    </Button>
+                ))}
+            </div>
+
             <div className="flex flex-wrap gap-2">
                 <Button
-                    variant={selectedCategory === "all" ? "default" : "outline"}
+                    variant={selectedCategory === "all" ? "secondary" : "outline"}
                     size="sm"
                     onClick={() => onSelectCategory("all")}
                     className="rounded-full text-xs h-7 px-3"
@@ -46,10 +67,10 @@ export function CategoryFilter({
                 {categories.map((cat) => (
                     <Button
                         key={cat}
-                        variant={selectedCategory === cat ? "default" : "outline"}
+                        variant={selectedCategory === cat ? "secondary" : "outline"}
                         size="sm"
                         onClick={() => onSelectCategory(cat)}
-                        className="rounded-full text-xs h-7 px-3"
+                        className={cn("rounded-full text-xs h-7 px-3", selectedCategory === cat && "bg-secondary text-secondary-foreground hover:bg-secondary/80")}
                     >
                         {LABELS[cat]}{categoryCounts && categoryCounts[cat] !== undefined && ` (${categoryCounts[cat]})`}
                     </Button>

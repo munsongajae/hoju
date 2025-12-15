@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Star, ExternalLink, Baby } from "lucide-react";
 import Link from "next/link";
 
-export type PlaceCategory = "tour" | "food" | "shop" | "medical" | "play" | "museum";
+export type PlaceCategory = "tour" | "food" | "shop" | "medical" | "play" | "museum" | "market";
 
 export interface PlaceData {
     id: string;
     name: string;
     category: PlaceCategory;
+    city?: string; // "시드니" | "멜버른"
     rating?: number; // 1-5
     isKidFriendly: boolean;
     notes: string;
@@ -30,6 +31,7 @@ const categoryColors: Record<PlaceCategory, string> = {
     medical: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
     play: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
     museum: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    market: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
 };
 
 const categoryLabels: Record<PlaceCategory, string> = {
@@ -39,6 +41,7 @@ const categoryLabels: Record<PlaceCategory, string> = {
     medical: "병원/약국",
     play: "놀이터/키즈",
     museum: "전시",
+    market: "시장",
 };
 
 export function PlaceCard({ place, onClick }: PlaceCardProps) {

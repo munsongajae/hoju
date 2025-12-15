@@ -35,6 +35,7 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
 
     // Form States
     const [name, setName] = useState("");
+    const [city, setCity] = useState("시드니");
     const [category, setCategory] = useState<PlaceCategory>("tour");
     const [rating, setRating] = useState("5");
     const [isKidFriendly, setIsKidFriendly] = useState(false);
@@ -48,6 +49,7 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
         try {
             const { error } = await supabase.from("places").insert([{
                 name,
+                city,
                 category,
                 rating: parseFloat(rating),
                 is_kid_friendly: isKidFriendly,
@@ -96,6 +98,18 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
+                            <Label htmlFor="city">도시</Label>
+                            <Select value={city} onValueChange={setCity}>
+                                <SelectTrigger id="city">
+                                    <SelectValue placeholder="도시 선택" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="시드니">시드니</SelectItem>
+                                    <SelectItem value="멜버른">멜버른</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
                             <Label htmlFor="category">카테고리</Label>
                             <Select value={category} onValueChange={(v) => setCategory(v as PlaceCategory)}>
                                 <SelectTrigger id="category">
@@ -108,21 +122,22 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                                     <SelectItem value="play">놀이</SelectItem>
                                     <SelectItem value="museum">전시</SelectItem>
                                     <SelectItem value="medical">의료</SelectItem>
+                                    <SelectItem value="market">시장</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="rating">별점 (1-5)</Label>
-                            <Input
-                                id="rating"
-                                type="number"
-                                min="1"
-                                max="5"
-                                step="0.5"
-                                value={rating}
-                                onChange={(e) => setRating(e.target.value)}
-                            />
-                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="rating">별점 (1-5)</Label>
+                        <Input
+                            id="rating"
+                            type="number"
+                            min="1"
+                            max="5"
+                            step="0.5"
+                            value={rating}
+                            onChange={(e) => setRating(e.target.value)}
+                        />
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -162,6 +177,6 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                     </DialogFooter>
                 </form>
             </DialogContent>
-        </Dialog>
+        </Dialog >
     );
 }

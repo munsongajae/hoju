@@ -11,12 +11,13 @@ import { Button } from "@/components/ui/button";
 
 import { supabase } from "@/lib/supabase";
 
-const CATEGORIES: PlaceCategory[] = ["tour", "food", "play", "shop", "museum", "medical"];
+const CATEGORIES: PlaceCategory[] = ["tour", "food", "play", "shop", "museum", "medical", "market"];
 
 export default function PlacesPage() {
     const [places, setPlaces] = useState<PlaceData[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedCategory, setSelectedCategory] = useState<PlaceCategory | "all">("all");
+    const [selectedCity, setSelectedCity] = useState("전체");
     const [showKidFriendlyOnly, setShowKidFriendlyOnly] = useState(false);
 
     // Detail Dialog State
@@ -45,6 +46,7 @@ export default function PlacesPage() {
                     id: item.id,
                     name: item.name,
                     category: item.category,
+                    city: item.city || "시드니",
                     rating: item.rating,
                     isKidFriendly: item.is_kid_friendly,
                     notes: item.notes,
@@ -64,7 +66,13 @@ export default function PlacesPage() {
         fetchPlaces();
     }, [fetchPlaces]);
 
-    const filteredPlaces = places.filter((place) => {
+    // Filter by City first to calculate counts correctly for the city
+    const placesByCity = places.filter((place) => {
+        if (selectedCity === "전체") return true;
+        return place.city === selectedCity;
+    });
+
+    const filteredPlaces = placesByCity.filter((place) => {
         const catMatch = selectedCategory === "all" || place.category === selectedCategory;
         const kidMatch = !showKidFriendlyOnly || place.isKidFriendly;
         return catMatch && kidMatch;
@@ -73,7 +81,7 @@ export default function PlacesPage() {
     // Reset page when filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [selectedCategory, showKidFriendlyOnly]);
+    }, [selectedCategory, selectedCity, showKidFriendlyOnly]);
 
     // Calculate pagination
     const totalPages = Math.ceil(filteredPlaces.length / ITEMS_PER_PAGE);
@@ -82,14 +90,14 @@ export default function PlacesPage() {
         currentPage * ITEMS_PER_PAGE
     );
 
-    // Calculate category counts (unchanged)
+    // Calculate category counts based on current city
     const categoryCounts = useMemo(() => {
         const counts: Record<string, number> = {};
-        places.forEach((place) => {
+        placesByCity.forEach((place) => {
             counts[place.category] = (counts[place.category] || 0) + 1;
         });
         return counts;
-    }, [places]);
+    }, [placesByCity]);
 
     return (
         <div className="pb-24 p-4 space-y-4">
@@ -103,6 +111,8 @@ export default function PlacesPage() {
                 categoryCounts={categoryCounts}
                 selectedCategory={selectedCategory}
                 onSelectCategory={setSelectedCategory}
+                selectedCity={selectedCity}
+                onSelectCity={setSelectedCity}
                 showKidFriendlyOnly={showKidFriendlyOnly}
                 onToggleKidFriendly={() => setShowKidFriendlyOnly(!showKidFriendlyOnly)}
             />
