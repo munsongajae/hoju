@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
+import { TravelInfoSection } from "@/components/dashboard/TravelInfoSection";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -121,6 +122,8 @@ export default function DashboardPage() {
           <span className="text-sm font-medium">오늘 일기</span>
         </Link>
       </div>
+
+      <TravelInfoSection />
     </div>
   );
 }
