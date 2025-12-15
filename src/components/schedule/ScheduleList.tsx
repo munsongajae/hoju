@@ -14,6 +14,7 @@ export interface ScheduleItemData {
     day: number;
     city: string;
     time: string;
+    rawTime?: string; // HH:MM:SS format for comparison
     title: string;
     type: ScheduleType;
     memo?: string;

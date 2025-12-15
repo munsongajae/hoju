@@ -8,6 +8,7 @@ import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 import { EditScheduleDialog } from "@/components/schedule/EditScheduleDialog";
 import { supabase } from "@/lib/supabase";
 import { Loader2 } from "lucide-react";
+import { addDays, isAfter, parse, set } from "date-fns";
 
 // Helper to format HH:MM:SS to HH:MM AM/PM
 const formatTime = (timeStr: string) => {
@@ -39,6 +40,45 @@ export default function SchedulePage() {
         fetchTripInfo();
     }, []);
 
+    // Auto-complete past schedule items
+    useEffect(() => {
+        if (!tripStartDate || items.length === 0) return;
+
+        const now = new Date();
+        const itemsToComplete: ScheduleItemData[] = [];
+
+        items.forEach(item => {
+            if (item.isCompleted) return; // Skip already completed
+            if (!item.rawTime) return;
+
+            // Calculate actual date/time for this schedule item
+            const itemDate = addDays(tripStartDate, item.day - 1);
+            const [hours, minutes] = item.rawTime.split(':').map(Number);
+            const itemDateTime = set(itemDate, { hours, minutes, seconds: 0 });
+
+            // If current time is after the scheduled time, mark as complete
+            if (isAfter(now, itemDateTime)) {
+                itemsToComplete.push(item);
+            }
+        });
+
+        // Auto-complete past items
+        if (itemsToComplete.length > 0) {
+            itemsToComplete.forEach(async (item) => {
+                // Optimistic update
+                setItems(prev => prev.map(i =>
+                    i.id === item.id ? { ...i, isCompleted: true } : i
+                ));
+
+                // Update in database
+                await supabase
+                    .from('schedules')
+                    .update({ is_completed: true })
+                    .eq('id', item.id);
+            });
+        }
+    }, [items, tripStartDate]);
+
     async function fetchTripInfo() {
         const { data } = await supabase
             .from('trips')
@@ -68,6 +108,7 @@ export default function SchedulePage() {
                     day: item.day_number,
                     city: item.city,
                     time: formatTime(item.start_time),
+                    rawTime: item.start_time,
                     title: item.title,
                     type: item.type as ScheduleType,
                     memo: item.memo,
