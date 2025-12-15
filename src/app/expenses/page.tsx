@@ -43,7 +43,8 @@ export default function ExpensesPage() {
                     amount: item.amount,
                     category: item.category as ExpenseCategory,
                     title: item.title,
-                    city: item.city
+                    city: item.city,
+                    currency: item.currency
                 }));
                 setExpenses(formattedData);
             }
