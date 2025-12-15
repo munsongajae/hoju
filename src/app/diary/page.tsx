@@ -53,7 +53,7 @@ export default function DiaryPage() {
     const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [formTitle, setFormTitle] = useState("");
     const [formContent, setFormContent] = useState("");
-    const [formMood, setFormMood] = useState("normal");
+    const [formMoods, setFormMoods] = useState<string[]>(["normal"]);
     const [formHighlight, setFormHighlight] = useState("");
 
     useEffect(() => {
@@ -97,7 +97,7 @@ export default function DiaryPage() {
         setFormDate(format(new Date(), "yyyy-MM-dd"));
         setFormTitle("");
         setFormContent("");
-        setFormMood("normal");
+        setFormMoods(["normal"]);
         setFormHighlight("");
         setDialogOpen(true);
     }
@@ -107,7 +107,7 @@ export default function DiaryPage() {
         setFormDate(entry.date);
         setFormTitle(entry.title || "");
         setFormContent(entry.content || "");
-        setFormMood(entry.mood || "normal");
+        setFormMoods(entry.mood ? entry.mood.split(",") : ["normal"]);
         setFormHighlight(entry.highlight || "");
         setDialogOpen(true);
     }
@@ -128,7 +128,7 @@ export default function DiaryPage() {
                 date: formDate,
                 title: formTitle || (isTripStarted ? `Day ${dayNum} 일기` : `D-${dayNum} 준비 일기`),
                 content: formContent,
-                mood: formMood,
+                mood: formMoods.join(","),
                 highlight: formHighlight,
                 updated_at: new Date().toISOString(),
             };
@@ -183,6 +183,18 @@ export default function DiaryPage() {
 
     const getMoodInfo = (mood: string) => MOODS.find(m => m.value === mood) || MOODS[5];
 
+    const toggleMood = (moodValue: string) => {
+        setFormMoods(prev => {
+            if (prev.includes(moodValue)) {
+                // Prevent removing the last mood if there's only one
+                if (prev.length === 1) return prev;
+                return prev.filter(m => m !== moodValue);
+            } else {
+                return [...prev, moodValue];
+            }
+        });
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -209,8 +221,6 @@ export default function DiaryPage() {
             ) : (
                 <div className="space-y-3">
                     {entries.map((entry) => {
-                        const moodInfo = getMoodInfo(entry.mood);
-                        const MoodIcon = moodInfo.icon;
 
                         return (
                             <Card
@@ -228,10 +238,18 @@ export default function DiaryPage() {
                                                 {format(parseISO(entry.date), "M월 d일 (EEE)", { locale: ko })}
                                             </span>
                                         </div>
-                                        <Badge className={moodInfo.color + " border-0"}>
-                                            <MoodIcon className="w-3 h-3 mr-1" />
-                                            {moodInfo.label}
-                                        </Badge>
+                                        <div className="flex gap-1">
+                                            {entry.mood.split(",").map(m => {
+                                                const moodInfo = getMoodInfo(m);
+                                                const MoodIcon = moodInfo.icon;
+                                                return (
+                                                    <Badge key={m} className={moodInfo.color + " border-0"}>
+                                                        <MoodIcon className="w-3 h-3 mr-1" />
+                                                        {moodInfo.label}
+                                                    </Badge>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="px-4 pb-4">
@@ -290,8 +308,8 @@ export default function DiaryPage() {
                                         <button
                                             key={mood.value}
                                             type="button"
-                                            onClick={() => setFormMood(mood.value)}
-                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formMood === mood.value
+                                            onClick={() => toggleMood(mood.value)}
+                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formMoods.includes(mood.value)
                                                 ? mood.color + " ring-2 ring-offset-1 ring-primary"
                                                 : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                                                 }`}
@@ -348,6 +366,6 @@ export default function DiaryPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }
