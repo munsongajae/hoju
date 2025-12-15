@@ -150,7 +150,7 @@ export default function DiaryPage() {
             loadData();
         } catch (err: any) {
             console.error("Failed to save diary:", err);
-            alert(`저장 실패: ${err?.message || "알 수 없는 오류"}`);
+            alert(`저장 실패: ${err?.message || JSON.stringify(err) || "알 수 없는 오류"}`);
         } finally {
             setSaving(false);
         }
