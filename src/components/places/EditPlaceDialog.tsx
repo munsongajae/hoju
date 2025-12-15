@@ -1,0 +1,209 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Trash2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { PlaceData, PlaceCategory } from "./PlaceCard";
+
+interface EditPlaceDialogProps {
+    place: PlaceData | null;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onPlaceUpdated: () => void;
+}
+
+export function EditPlaceDialog({
+    place,
+    open,
+    onOpenChange,
+    onPlaceUpdated
+}: EditPlaceDialogProps) {
+    const [loading, setLoading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const [name, setName] = useState("");
+    const [category, setCategory] = useState<PlaceCategory>("tour");
+    const [rating, setRating] = useState("5");
+    const [isKidFriendly, setIsKidFriendly] = useState(false);
+    const [notes, setNotes] = useState("");
+    const [googleMapUrl, setGoogleMapUrl] = useState("");
+
+    useEffect(() => {
+        if (place) {
+            setName(place.name);
+            setCategory(place.category);
+            setRating(String(place.rating || 5));
+            setIsKidFriendly(place.isKidFriendly || false);
+            setNotes(place.notes || "");
+            setGoogleMapUrl(place.googleMapUrl || "");
+        }
+    }, [place]);
+
+    const handleUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!place) return;
+        setLoading(true);
+
+        try {
+            const { error } = await supabase
+                .from("places")
+                .update({
+                    name,
+                    category,
+                    rating: parseFloat(rating),
+                    is_kid_friendly: isKidFriendly,
+                    notes,
+                    google_map_url: googleMapUrl,
+                })
+                .eq('id', place.id);
+
+            if (error) throw error;
+
+            onOpenChange(false);
+            onPlaceUpdated();
+        } catch (error) {
+            console.error("Error updating place:", error);
+            alert("장소 수정에 실패했습니다.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!place) return;
+        if (!confirm("정말 이 장소를 삭제하시겠습니까?")) return;
+
+        setDeleting(true);
+        try {
+            const { error } = await supabase
+                .from("places")
+                .delete()
+                .eq('id', place.id);
+
+            if (error) throw error;
+
+            onOpenChange(false);
+            onPlaceUpdated();
+        } catch (error) {
+            console.error("Error deleting place:", error);
+            alert("장소 삭제에 실패했습니다.");
+        } finally {
+            setDeleting(false);
+        }
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                    <DialogTitle>장소 수정</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleUpdate} className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-name">장소명 *</Label>
+                        <Input
+                            id="edit-name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-category">카테고리</Label>
+                            <Select value={category} onValueChange={(v) => setCategory(v as PlaceCategory)}>
+                                <SelectTrigger id="edit-category">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="tour">관광</SelectItem>
+                                    <SelectItem value="food">맛집</SelectItem>
+                                    <SelectItem value="shop">쇼핑</SelectItem>
+                                    <SelectItem value="play">놀이</SelectItem>
+                                    <SelectItem value="museum">전시</SelectItem>
+                                    <SelectItem value="medical">의료</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-rating">별점 (1-5)</Label>
+                            <Input
+                                id="edit-rating"
+                                type="number"
+                                min="1"
+                                max="5"
+                                step="0.5"
+                                value={rating}
+                                onChange={(e) => setRating(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                        <Checkbox
+                            id="edit-kidFriendly"
+                            checked={isKidFriendly}
+                            onCheckedChange={(c) => setIsKidFriendly(c as boolean)}
+                        />
+                        <Label htmlFor="edit-kidFriendly" className="cursor-pointer">아이 동반 추천</Label>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-url">구글맵 링크</Label>
+                        <Input
+                            id="edit-url"
+                            value={googleMapUrl}
+                            onChange={(e) => setGoogleMapUrl(e.target.value)}
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-notes">메모</Label>
+                        <Textarea
+                            id="edit-notes"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                        />
+                    </div>
+
+                    <DialogFooter className="flex justify-between sm:justify-between gap-2">
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                            className="mr-auto"
+                        >
+                            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                            삭제
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            저장하기
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
