@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { PlaceCard, PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
 import { CategoryFilter } from "@/components/places/CategoryFilter";
 import { AddPlaceDialog } from "@/components/places/AddPlaceDialog";
 import { EditPlaceDialog } from "@/components/places/EditPlaceDialog";
 import { PlaceDetailDialog } from "@/components/places/PlaceDetailDialog";
 import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { supabase } from "@/lib/supabase";
 
@@ -26,11 +27,11 @@ export default function PlacesPage() {
     const [editingPlace, setEditingPlace] = useState<PlaceData | null>(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
 
-    useEffect(() => {
-        fetchPlaces();
-    }, []);
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
-    async function fetchPlaces() {
+    const fetchPlaces = useCallback(async () => {
         try {
             setLoading(true);
             const { data, error } = await supabase
@@ -49,6 +50,7 @@ export default function PlacesPage() {
                     notes: item.notes,
                     googleMapUrl: item.google_map_url,
                 }));
+                // Sort by creation or name if needed, but Supabase default order is usually ID
                 setPlaces(formattedData);
             }
         } catch (err) {
@@ -56,7 +58,11 @@ export default function PlacesPage() {
         } finally {
             setLoading(false);
         }
-    }
+    }, []);
+
+    useEffect(() => {
+        fetchPlaces();
+    }, [fetchPlaces]);
 
     const filteredPlaces = places.filter((place) => {
         const catMatch = selectedCategory === "all" || place.category === selectedCategory;
@@ -64,7 +70,19 @@ export default function PlacesPage() {
         return catMatch && kidMatch;
     });
 
-    // Calculate category counts
+    // Reset page when filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedCategory, showKidFriendlyOnly]);
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredPlaces.length / ITEMS_PER_PAGE);
+    const paginatedPlaces = filteredPlaces.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+    // Calculate category counts (unchanged)
     const categoryCounts = useMemo(() => {
         const counts: Record<string, number> = {};
         places.forEach((place) => {
@@ -94,21 +112,48 @@ export default function PlacesPage() {
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
                 </div>
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {filteredPlaces.map((place) => (
-                        <PlaceCard
-                            key={place.id}
-                            place={place}
-                            onClick={() => {
-                                setSelectedPlace(place);
-                                setDetailDialogOpen(true);
-                            }}
-                        />
-                    ))}
-                    {filteredPlaces.length === 0 && (
-                        <div className="col-span-full text-center py-10 text-muted-foreground">
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        {paginatedPlaces.map((place) => (
+                            <PlaceCard
+                                key={place.id}
+                                place={place}
+                                onClick={() => {
+                                    setSelectedPlace(place);
+                                    setDetailDialogOpen(true);
+                                }}
+                            />
+                        ))}
+                    </div>
+
+                    {filteredPlaces.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">
                             조건에 맞는 장소가 없습니다.
                         </div>
+                    ) : (
+                        totalPages > 1 && (
+                            <div className="flex justify-center items-center gap-2 mt-4">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    이전
+                                </Button>
+                                <span className="text-sm text-muted-foreground">
+                                    {currentPage} / {totalPages}
+                                </span>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    다음
+                                </Button>
+                            </div>
+                        )
                     )}
                 </div>
             )}

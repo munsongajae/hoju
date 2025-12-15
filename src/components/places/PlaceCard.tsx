@@ -47,25 +47,22 @@ export function PlaceCard({ place, onClick }: PlaceCardProps) {
             className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
             onClick={onClick}
         >
-            <CardContent className="px-4 py-2.5 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Badge variant="secondary" className={categoryColors[place.category]}>
+            <CardContent className="px-3 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={`px-1.5 py-0 text-[10px] h-5 ${categoryColors[place.category]}`}>
                         {categoryLabels[place.category]}
                     </Badge>
-                    <div className="space-y-1">
-                        <h3 className="font-bold text-base leading-none">{place.name}</h3>
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-sm leading-none truncate max-w-[150px] sm:max-w-none">{place.name}</h3>
                         {place.isKidFriendly && (
-                            <div className="flex items-center text-xs text-green-600 dark:text-green-400">
-                                <Baby className="w-3 h-3 mr-0.5" />
-                                <span className="text-[10px]">아이 추천</span>
-                            </div>
+                            <Baby className="w-3 h-3 text-green-600 dark:text-green-400" />
                         )}
                     </div>
                 </div>
 
                 {place.rating && (
-                    <div className="flex items-center text-amber-500 font-medium bg-amber-50 dark:bg-amber-900/20 px-2 py-1 rounded-md text-xs">
-                        <Star className="w-3 h-3 fill-current mr-1" />
+                    <div className="flex items-center text-amber-500 font-medium bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded text-[10px]">
+                        <Star className="w-3 h-3 fill-current mr-0.5" />
                         {place.rating}
                     </div>
                 )}
