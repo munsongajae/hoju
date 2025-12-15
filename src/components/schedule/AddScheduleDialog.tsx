@@ -20,11 +20,18 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, CalendarIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ScheduleType } from "./ScheduleList";
-import { addDays, format } from "date-fns";
+import { addDays, format, differenceInCalendarDays } from "date-fns";
 import { ko } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface AddScheduleDialogProps {
     onScheduleAdded: () => void;
@@ -67,6 +74,7 @@ export function AddScheduleDialog({
     const [title, setTitle] = useState("");
     const [type, setType] = useState<ScheduleType>("view");
     const [memo, setMemo] = useState("");
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
     // Initialize with initialData when opening
     useEffect(() => {
@@ -74,8 +82,6 @@ export function AddScheduleDialog({
             if (initialData.title) setTitle(initialData.title);
             if (initialData.city) setCity(initialData.city);
             if (initialData.memo) setMemo(initialData.memo);
-        } else if (!finalOpen && !isControlled) {
-            // Optional: reset fields on close
         }
     }, [finalOpen, initialData, isControlled]);
 
@@ -86,22 +92,38 @@ export function AddScheduleDialog({
                 const { data } = await supabase.from('trips').select('id, start_date').limit(1).single();
                 if (data) {
                     setTripId(data.id);
-                    if (data.start_date) setTripStartDate(new Date(data.start_date));
+                    if (data.start_date) {
+                        const start = new Date(data.start_date);
+                        setTripStartDate(start);
+                        // Initialize selectedDate based on current day
+                        const currentDay = parseInt(day);
+                        if (!isNaN(currentDay) && currentDay > 0) {
+                            setSelectedDate(addDays(start, currentDay - 1));
+                        }
+                    }
                 }
             }
             fetchTrip();
         }
     }, [finalOpen]);
 
-    const getDisplayDate = () => {
-        if (!tripStartDate || !day) return null;
-        try {
-            const dayNum = parseInt(day);
-            if (isNaN(dayNum) || dayNum < 1) return null;
-            const targetDate = addDays(tripStartDate, dayNum - 1);
-            return format(targetDate, "M.d (EEE)", { locale: ko });
-        } catch (e) {
-            return null;
+    // Sync Date -> Day
+    const handleDateSelect = (date: Date | undefined) => {
+        setSelectedDate(date);
+        if (date && tripStartDate) {
+            const diff = differenceInCalendarDays(date, tripStartDate);
+            // Day 1 is start date. diff 0 -> Day 1.
+            const newDay = diff + 1;
+            if (newDay > 0) setDay(newDay.toString());
+        }
+    };
+
+    // Sync Day -> Date
+    const handleDayChange = (val: string) => {
+        setDay(val);
+        const dayNum = parseInt(val);
+        if (!isNaN(dayNum) && dayNum > 0 && tripStartDate) {
+            setSelectedDate(addDays(tripStartDate, dayNum - 1));
         }
     };
 
@@ -126,7 +148,6 @@ export function AddScheduleDialog({
 
             if (error) throw error;
 
-            // Reset features
             setTitle("");
             setMemo("");
             setFinalOpen(false);
@@ -160,21 +181,49 @@ export function AddScheduleDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="day">
-                                Day <span className="text-xs text-muted-foreground font-normal ml-1">
-                                    {getDisplayDate() && `(${getDisplayDate()})`}
-                                </span>
-                            </Label>
+                            <Label>날짜 선택</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !selectedDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedDate ? (
+                                            format(selectedDate, "yy.MM.dd (EEE)", { locale: ko })
+                                        ) : (
+                                            <span>날짜 선택</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={handleDateSelect}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="day">Day</Label>
                             <Input
                                 id="day"
                                 type="number"
                                 min="1"
                                 max="30"
                                 value={day}
-                                onChange={(e) => setDay(e.target.value)}
+                                onChange={(e) => handleDayChange(e.target.value)}
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="city">도시</Label>
                             <Select value={city} onValueChange={setCity}>
