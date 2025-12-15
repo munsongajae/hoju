@@ -1,61 +1,117 @@
 "use client";
 
-import { useState } from "react";
-import { ChecklistGroup, ChecklistGroupData } from "@/components/checklist/ChecklistGroup";
+import { useState, useEffect } from "react";
+import { ChecklistGroup, ChecklistGroupData, ChecklistItemData } from "@/components/checklist/ChecklistGroup";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
-
-const INITIAL_DATA: ChecklistGroupData[] = [
-    {
-        title: "출발 전 (Before Departure)",
-        items: [
-            { id: "1", label: "여권 (유효기간 확인)", checked: false },
-            { id: "2", label: "호주 비자 (ETA) 승인 확인", checked: true },
-            { id: "3", label: "여행자 보험 가입", checked: true },
-            { id: "4", label: "환전 / 트래블카드 충전", checked: false },
-            { id: "5", label: "상비약 (해열제, 소화제 등)", checked: false },
-        ],
-    },
-    {
-        title: "숙소 이동 시 (Before Moving)",
-        items: [
-            { id: "6", label: "충전기 / 멀티탭 챙기기", checked: false },
-            { id: "7", label: "세면도구 빠진 것 없나 확인", checked: false },
-            { id: "8", label: "아이 애착인형 🧸", checked: false },
-            { id: "9", label: "냉장고 음식 처리", checked: false },
-        ],
-    },
-];
+import { supabase } from "@/lib/supabase";
 
 export default function ChecklistPage() {
-    const [groups, setGroups] = useState(INITIAL_DATA);
+    const [groups, setGroups] = useState<ChecklistGroupData[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    const handleToggle = (itemId: string, checked: boolean) => {
+    useEffect(() => {
+        fetchChecklists();
+    }, []);
+
+    async function fetchChecklists() {
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from("checklists")
+                .select("*")
+                .order("id");
+
+            if (error) {
+                console.error("Error fetching checklists:", error);
+            } else if (data) {
+                // Group by category
+                const grouped: Record<string, ChecklistItemData[]> = {};
+
+                data.forEach((item: any) => {
+                    if (!grouped[item.category]) {
+                        grouped[item.category] = [];
+                    }
+                    grouped[item.category].push({
+                        id: item.id,
+                        label: item.label,
+                        checked: item.is_checked
+                    });
+                });
+
+                const formattedGroups: ChecklistGroupData[] = Object.keys(grouped).map(category => ({
+                    title: category,
+                    items: grouped[category]
+                }));
+
+                setGroups(formattedGroups);
+            }
+        } catch (err) {
+            console.error("Failed to fetch checklists:", err);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    const handleToggle = async (itemId: string, checked: boolean) => {
+        // 1. Optimistic UI Update
         setGroups((prev) =>
             prev.map((g) => ({
                 ...g,
                 items: g.items.map((i) => i.id === itemId ? { ...i, checked } : i)
             }))
         );
+
+        // 2. Supabase Update
+        try {
+            const { error } = await supabase
+                .from("checklists")
+                .update({ is_checked: checked })
+                .eq("id", itemId);
+
+            if (error) throw error;
+        } catch (err) {
+            console.error("Failed to update checklist:", err);
+            // Revert on error (optional, but good practice)
+            fetchChecklists();
+        }
     };
 
     return (
-        <div className="p-4 pb-24">
-            <div className="flex items-center gap-2 mb-6">
-                <Button variant="ghost" size="icon" asChild>
-                    <Link href="/"><ArrowLeft className="w-5 h-5" /></Link>
+        <div className="p-4 pb-24 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" asChild>
+                        <Link href="/"><ArrowLeft className="w-5 h-5" /></Link>
+                    </Button>
+                    <h1 className="text-2xl font-bold">체크리스트</h1>
+                </div>
+                <Button variant="ghost" size="icon" onClick={fetchChecklists}>
+                    <RefreshCw className="w-4 h-4" />
                 </Button>
-                <h1 className="text-2xl font-bold">체크리스트</h1>
             </div>
 
-            {groups.map((group) => (
-                <ChecklistGroup
-                    key={group.title}
-                    group={group}
-                    onToggle={handleToggle}
-                />
-            ))}
+            {loading ? (
+                <div className="flex justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
+            ) : groups.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">
+                    <p>체크리스트가 비어있습니다.</p>
+                    <p className="text-sm">DB에 데이터가 있는지 확인해주세요.</p>
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    {groups.map((group) => (
+                        <ChecklistGroup
+                            key={group.title}
+                            group={group}
+                            onToggle={handleToggle}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

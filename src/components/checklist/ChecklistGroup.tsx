@@ -2,9 +2,15 @@
 
 import { ChecklistItem } from "./ChecklistItem";
 
+export interface ChecklistItemData {
+    id: string;
+    label: string;
+    checked: boolean;
+}
+
 export interface ChecklistGroupData {
     title: string;
-    items: { id: string; label: string; checked: boolean }[];
+    items: ChecklistItemData[];
 }
 
 interface ChecklistGroupProps {
