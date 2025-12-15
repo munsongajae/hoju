@@ -47,7 +47,7 @@ export function PlaceCard({ place, onClick }: PlaceCardProps) {
             className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50"
             onClick={onClick}
         >
-            <CardContent className="p-4 flex items-center justify-between">
+            <CardContent className="px-4 py-2.5 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Badge variant="secondary" className={categoryColors[place.category]}>
                         {categoryLabels[place.category]}
