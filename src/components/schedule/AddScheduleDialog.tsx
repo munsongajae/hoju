@@ -23,6 +23,8 @@ import {
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ScheduleType } from "./ScheduleList";
+import { addDays, format } from "date-fns";
+import { ko } from "date-fns/locale";
 
 interface AddScheduleDialogProps {
     onScheduleAdded: () => void;
@@ -46,6 +48,7 @@ export function AddScheduleDialog({
     const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [tripId, setTripId] = useState<string>("");
+    const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
 
     const isControlled = open !== undefined;
     const finalOpen = isControlled ? open : internalOpen;
@@ -72,22 +75,35 @@ export function AddScheduleDialog({
             if (initialData.city) setCity(initialData.city);
             if (initialData.memo) setMemo(initialData.memo);
         } else if (!finalOpen && !isControlled) {
-            // Reset on close if not controlled (or maybe just check open transition)
-            // But usually we want to keep form if user accidentally closes?
-            // Let's reset if it's a fresh open.
+            // Optional: reset fields on close
         }
     }, [finalOpen, initialData, isControlled]);
 
-    // Fetch a trip ID (just grab the first one for MVP)
+    // Fetch a trip ID and start date
     useEffect(() => {
         if (finalOpen) {
             const fetchTrip = async () => {
-                const { data } = await supabase.from('trips').select('id').limit(1).single();
-                if (data) setTripId(data.id);
+                const { data } = await supabase.from('trips').select('id, start_date').limit(1).single();
+                if (data) {
+                    setTripId(data.id);
+                    if (data.start_date) setTripStartDate(new Date(data.start_date));
+                }
             }
             fetchTrip();
         }
     }, [finalOpen]);
+
+    const getDisplayDate = () => {
+        if (!tripStartDate || !day) return null;
+        try {
+            const dayNum = parseInt(day);
+            if (isNaN(dayNum) || dayNum < 1) return null;
+            const targetDate = addDays(tripStartDate, dayNum - 1);
+            return format(targetDate, "M.d (EEE)", { locale: ko });
+        } catch (e) {
+            return null;
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -144,7 +160,11 @@ export function AddScheduleDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="day">Day</Label>
+                            <Label htmlFor="day">
+                                Day <span className="text-xs text-muted-foreground font-normal ml-1">
+                                    {getDisplayDate() && `(${getDisplayDate()})`}
+                                </span>
+                            </Label>
                             <Input
                                 id="day"
                                 type="number"
