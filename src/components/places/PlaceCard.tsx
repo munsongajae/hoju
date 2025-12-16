@@ -25,6 +25,8 @@ export interface PlaceData {
     websiteUrl?: string;
     address?: string;
     visitCount?: number;
+    lat?: number;
+    lng?: number;
 }
 
 interface PlaceCardProps {
@@ -110,11 +112,10 @@ export function PlaceCard({ place, onClick, onFavoriteToggle }: PlaceCardProps) 
                     )}
                     <button
                         onClick={handleFavoriteClick}
-                        className={`p-1 rounded transition-colors ${
-                            isFavorite 
-                                ? "text-red-500 hover:text-red-600" 
+                        className={`p-1 rounded transition-colors ${isFavorite
+                                ? "text-red-500 hover:text-red-600"
                                 : "text-muted-foreground hover:text-red-500"
-                        }`}
+                            }`}
                         disabled={isToggling}
                     >
                         <Heart className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />

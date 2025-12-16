@@ -24,6 +24,16 @@ import { supabase } from "@/lib/supabase";
 import { ScheduleType, ScheduleItemData } from "./ScheduleList";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { ExpenseCategory } from "@/components/expenses/ExpenseList";
+import { addDays, format, differenceInCalendarDays } from "date-fns";
+import { ko } from "date-fns/locale";
+import { Calendar } from "@/components/ui/calendar";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import { CalendarIcon } from "lucide-react";
 
 interface EditScheduleDialogProps {
     schedule: ScheduleItemData | null;
@@ -60,6 +70,24 @@ export function EditScheduleDialog({
     const [type, setType] = useState<ScheduleType>("view");
     const [memo, setMemo] = useState("");
 
+    // Date Logic
+    const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+    // Fetch Trip Start Date
+    useEffect(() => {
+        const fetchTrip = async () => {
+            // Assuming single trip for now or fetching the one related to schedule if possible
+            // But schedule doesn't have trip_id in the interface usually? 
+            // Actually AddScheduleDialog fetches the single trip. We'll do the same.
+            const { data } = await supabase.from('trips').select('start_date').limit(1).single();
+            if (data && data.start_date) {
+                setTripStartDate(new Date(data.start_date));
+            }
+        };
+        if (open) fetchTrip();
+    }, [open]);
+
     // Populate form when schedule changes
     useEffect(() => {
         if (schedule) {
@@ -68,6 +96,15 @@ export function EditScheduleDialog({
             setTitle(schedule.title);
             setType(schedule.type);
             setMemo(schedule.memo || "");
+
+            // Calculate date if tripStartDate is available
+            if (tripStartDate) {
+                const dayNum = parseInt(String(schedule.day));
+                if (!isNaN(dayNum) && dayNum > 0) {
+                    setSelectedDate(addDays(tripStartDate, dayNum - 1));
+                }
+            }
+
             // Convert time back to HH:MM format for input
             // schedule.time is like "10:00 AM"
             const timeParts = schedule.time.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -80,7 +117,27 @@ export function EditScheduleDialog({
                 setStartTime(`${String(h).padStart(2, '0')}:${m}`);
             }
         }
-    }, [schedule]);
+    }, [schedule, tripStartDate]);
+
+    // Sync Date -> Day
+    const handleDateSelect = (date: Date | undefined) => {
+        setSelectedDate(date);
+        if (date && tripStartDate) {
+            const diff = differenceInCalendarDays(date, tripStartDate);
+            // Day 1 is start date. diff 0 -> Day 1.
+            const newDay = diff + 1;
+            if (newDay > 0) setDay(newDay.toString());
+        }
+    };
+
+    // Sync Day -> Date
+    const handleDayChange = (val: string) => {
+        setDay(val);
+        const dayNum = parseInt(val);
+        if (!isNaN(dayNum) && dayNum > 0 && tripStartDate) {
+            setSelectedDate(addDays(tripStartDate, dayNum - 1));
+        }
+    };
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -145,6 +202,35 @@ export function EditScheduleDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
+                            <Label>날짜 선택</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !selectedDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {selectedDate ? (
+                                            format(selectedDate, "yy.MM.dd (EEE)", { locale: ko })
+                                        ) : (
+                                            <span>날짜 선택</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={handleDateSelect}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
+                        <div className="grid gap-2">
                             <Label htmlFor="edit-day">Day</Label>
                             <Input
                                 id="edit-day"
@@ -152,10 +238,13 @@ export function EditScheduleDialog({
                                 min="1"
                                 max="30"
                                 value={day}
-                                onChange={(e) => setDay(e.target.value)}
+                                onChange={(e) => handleDayChange(e.target.value)}
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="edit-city">도시</Label>
                             <Select value={city} onValueChange={setCity}>
@@ -168,17 +257,16 @@ export function EditScheduleDialog({
                                 </SelectContent>
                             </Select>
                         </div>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="edit-time">시간</Label>
-                        <Input
-                            id="edit-time"
-                            type="time"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                            required
-                        />
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-time">시간</Label>
+                            <Input
+                                id="edit-time"
+                                type="time"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                                required
+                            />
+                        </div>
                     </div>
 
                     <div className="grid gap-2">

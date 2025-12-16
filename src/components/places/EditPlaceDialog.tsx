@@ -51,6 +51,8 @@ export function EditPlaceDialog({
     const [operatingHours, setOperatingHours] = useState("");
     const [contactPhone, setContactPhone] = useState("");
     const [websiteUrl, setWebsiteUrl] = useState("");
+    const [lat, setLat] = useState("");
+    const [lng, setLng] = useState("");
 
     useEffect(() => {
         if (place) {
@@ -65,6 +67,8 @@ export function EditPlaceDialog({
             setOperatingHours(place.operatingHours || "");
             setContactPhone(place.contactPhone || "");
             setWebsiteUrl(place.websiteUrl || "");
+            setLat(place.lat ? String(place.lat) : "");
+            setLng(place.lng ? String(place.lng) : "");
         }
     }, [place]);
 
@@ -88,6 +92,8 @@ export function EditPlaceDialog({
                     operating_hours: operatingHours || null,
                     contact_phone: contactPhone || null,
                     website_url: websiteUrl || null,
+                    lat: lat ? parseFloat(lat) : null,
+                    lng: lng ? parseFloat(lng) : null,
                 })
                 .eq('id', place.id);
 
@@ -244,6 +250,31 @@ export function EditPlaceDialog({
                             value={googleMapUrl}
                             onChange={(e) => setGoogleMapUrl(e.target.value)}
                         />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-lat">위도 (Latitude)</Label>
+                            <Input
+                                id="edit-lat"
+                                type="number"
+                                step="any"
+                                value={lat}
+                                onChange={(e) => setLat(e.target.value)}
+                                placeholder="-33.8688"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-lng">경도 (Longitude)</Label>
+                            <Input
+                                id="edit-lng"
+                                type="number"
+                                step="any"
+                                value={lng}
+                                onChange={(e) => setLng(e.target.value)}
+                                placeholder="151.2093"
+                            />
+                        </div>
                     </div>
 
                     <div className="grid gap-2">

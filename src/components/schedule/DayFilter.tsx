@@ -15,7 +15,7 @@ export function DayFilter({ days, selectedDay, onSelectDay }: DayFilterProps) {
 
     return (
         <ScrollArea className="w-full whitespace-nowrap rounded-md border bg-background">
-            <div className="flex w-max space-x-2 p-4">
+            <div className="flex w-max space-x-2 p-2">
                 <Button
                     variant={selectedDay === "all" ? "default" : "outline"}
                     size="sm"
