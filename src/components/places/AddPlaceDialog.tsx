@@ -41,6 +41,10 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
     const [isKidFriendly, setIsKidFriendly] = useState(false);
     const [notes, setNotes] = useState("");
     const [googleMapUrl, setGoogleMapUrl] = useState("");
+    const [address, setAddress] = useState("");
+    const [operatingHours, setOperatingHours] = useState("");
+    const [contactPhone, setContactPhone] = useState("");
+    const [websiteUrl, setWebsiteUrl] = useState("");
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -55,14 +59,26 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                 is_kid_friendly: isKidFriendly,
                 notes,
                 google_map_url: googleMapUrl,
+                address: address || null,
+                operating_hours: operatingHours || null,
+                contact_phone: contactPhone || null,
+                website_url: websiteUrl || null,
             }]);
 
             if (error) throw error;
 
             // Reset and Close
             setName("");
+            setCity("시드니");
+            setCategory("tour");
+            setRating("5");
+            setIsKidFriendly(false);
             setNotes("");
             setGoogleMapUrl("");
+            setAddress("");
+            setOperatingHours("");
+            setContactPhone("");
+            setWebsiteUrl("");
             setOpen(false);
             onPlaceAdded(); // Refresh list
         } catch (error) {
@@ -147,6 +163,47 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                             onCheckedChange={(c) => setIsKidFriendly(c as boolean)}
                         />
                         <Label htmlFor="kidFriendly" className="cursor-pointer">아이 동반 추천</Label>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="address">주소 (선택)</Label>
+                        <Input
+                            id="address"
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            placeholder="예: 123 Main Street, Sydney"
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="operatingHours">운영 시간 (선택)</Label>
+                        <Input
+                            id="operatingHours"
+                            value={operatingHours}
+                            onChange={(e) => setOperatingHours(e.target.value)}
+                            placeholder="예: 월-금 9:00-17:00"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="contactPhone">연락처 (선택)</Label>
+                            <Input
+                                id="contactPhone"
+                                value={contactPhone}
+                                onChange={(e) => setContactPhone(e.target.value)}
+                                placeholder="예: +61 2 1234 5678"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="websiteUrl">웹사이트 (선택)</Label>
+                            <Input
+                                id="websiteUrl"
+                                value={websiteUrl}
+                                onChange={(e) => setWebsiteUrl(e.target.value)}
+                                placeholder="https://..."
+                            />
+                        </div>
                     </div>
 
                     <div className="grid gap-2">

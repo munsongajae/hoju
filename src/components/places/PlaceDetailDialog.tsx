@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import {
     Dialog,
     DialogContent,
@@ -9,10 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Star, Baby, MapPin, Pencil, Plus } from "lucide-react";
+import { ExternalLink, Star, Baby, MapPin, Pencil, Plus, Clock, Phone, Globe, MapPin as MapPinIcon } from "lucide-react";
 import Link from "next/link";
 import { PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
 import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
+import { supabase } from "@/lib/supabase";
 
 interface PlaceDetailDialogProps {
     place: PlaceData | null;
@@ -42,6 +44,19 @@ const categoryLabels: Record<PlaceCategory, string> = {
 };
 
 export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDetailDialogProps) {
+    // 장소 상세 다이얼로그가 열릴 때 방문 횟수 증가
+    useEffect(() => {
+        if (place && open) {
+            supabase
+                .from('places')
+                .update({ visit_count: (place.visitCount || 0) + 1 })
+                .eq('id', place.id)
+                .then(() => {
+                    // 방문 횟수 업데이트는 백그라운드에서 처리
+                });
+        }
+    }, [place, open]);
+
     if (!place) return null;
 
     return (
@@ -70,6 +85,38 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
                             아이와 함께하기 좋아요
                         </div>
                     )}
+
+                    {/* 상세 정보 */}
+                    <div className="space-y-2">
+                        {place.address && (
+                            <div className="flex items-start gap-2 text-sm">
+                                <MapPinIcon className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                                <span className="text-muted-foreground">{place.address}</span>
+                            </div>
+                        )}
+                        {place.operatingHours && (
+                            <div className="flex items-start gap-2 text-sm">
+                                <Clock className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                                <span className="text-muted-foreground">{place.operatingHours}</span>
+                            </div>
+                        )}
+                        {place.contactPhone && (
+                            <div className="flex items-start gap-2 text-sm">
+                                <Phone className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                                <a href={`tel:${place.contactPhone}`} className="text-primary hover:underline">
+                                    {place.contactPhone}
+                                </a>
+                            </div>
+                        )}
+                        {place.websiteUrl && (
+                            <div className="flex items-start gap-2 text-sm">
+                                <Globe className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                                <a href={place.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                                    {place.websiteUrl}
+                                </a>
+                            </div>
+                        )}
+                    </div>
 
                     <div className="bg-muted p-4 rounded-lg text-sm leading-relaxed whitespace-pre-wrap">
                         {place.notes || "메모가 없습니다."}

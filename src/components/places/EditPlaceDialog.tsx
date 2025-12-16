@@ -47,6 +47,10 @@ export function EditPlaceDialog({
     const [isKidFriendly, setIsKidFriendly] = useState(false);
     const [notes, setNotes] = useState("");
     const [googleMapUrl, setGoogleMapUrl] = useState("");
+    const [address, setAddress] = useState("");
+    const [operatingHours, setOperatingHours] = useState("");
+    const [contactPhone, setContactPhone] = useState("");
+    const [websiteUrl, setWebsiteUrl] = useState("");
 
     useEffect(() => {
         if (place) {
@@ -57,6 +61,10 @@ export function EditPlaceDialog({
             setIsKidFriendly(place.isKidFriendly || false);
             setNotes(place.notes || "");
             setGoogleMapUrl(place.googleMapUrl || "");
+            setAddress(place.address || "");
+            setOperatingHours(place.operatingHours || "");
+            setContactPhone(place.contactPhone || "");
+            setWebsiteUrl(place.websiteUrl || "");
         }
     }, [place]);
 
@@ -76,6 +84,10 @@ export function EditPlaceDialog({
                     is_kid_friendly: isKidFriendly,
                     notes,
                     google_map_url: googleMapUrl,
+                    address: address || null,
+                    operating_hours: operatingHours || null,
+                    contact_phone: contactPhone || null,
+                    website_url: websiteUrl || null,
                 })
                 .eq('id', place.id);
 
@@ -182,6 +194,47 @@ export function EditPlaceDialog({
                             onCheckedChange={(c) => setIsKidFriendly(c as boolean)}
                         />
                         <Label htmlFor="edit-kidFriendly" className="cursor-pointer">아이 동반 추천</Label>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-address">주소</Label>
+                        <Input
+                            id="edit-address"
+                            value={address}
+                            onChange={(e) => setAddress(e.target.value)}
+                            placeholder="예: 123 Main Street, Sydney"
+                        />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-operatingHours">운영 시간</Label>
+                        <Input
+                            id="edit-operatingHours"
+                            value={operatingHours}
+                            onChange={(e) => setOperatingHours(e.target.value)}
+                            placeholder="예: 월-금 9:00-17:00"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-contactPhone">연락처</Label>
+                            <Input
+                                id="edit-contactPhone"
+                                value={contactPhone}
+                                onChange={(e) => setContactPhone(e.target.value)}
+                                placeholder="예: +61 2 1234 5678"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-websiteUrl">웹사이트</Label>
+                            <Input
+                                id="edit-websiteUrl"
+                                value={websiteUrl}
+                                onChange={(e) => setWebsiteUrl(e.target.value)}
+                                placeholder="https://..."
+                            />
+                        </div>
                     </div>
 
                     <div className="grid gap-2">

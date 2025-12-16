@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +15,7 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2 } from "lucide-react";
+import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2, Filter } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -47,6 +47,12 @@ export default function DiaryPage() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [tripId, setTripId] = useState<string | null>(null);
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
+
+    // 필터 상태
+    const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
+    const [dateRangeStart, setDateRangeStart] = useState("");
+    const [dateRangeEnd, setDateRangeEnd] = useState("");
+    const [showFilters, setShowFilters] = useState(false);
 
     // Form state
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -195,6 +201,30 @@ export default function DiaryPage() {
         });
     };
 
+    const toggleFilterMood = (moodValue: string) => {
+        setSelectedMoods(prev => 
+            prev.includes(moodValue)
+                ? prev.filter(m => m !== moodValue)
+                : [...prev, moodValue]
+        );
+    };
+
+    // 필터링된 일기 목록
+    const filteredEntries = useMemo(() => {
+        return entries.filter((entry) => {
+            // 기분 필터
+            const moodMatch = selectedMoods.length === 0 || 
+                entry.mood.split(",").some(m => selectedMoods.includes(m));
+            
+            // 날짜 범위 필터
+            const entryDate = parseISO(entry.date);
+            const startMatch = !dateRangeStart || entryDate >= parseISO(dateRangeStart);
+            const endMatch = !dateRangeEnd || entryDate <= parseISO(dateRangeEnd);
+            
+            return moodMatch && startMatch && endMatch;
+        });
+    }, [entries, selectedMoods, dateRangeStart, dateRangeEnd]);
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen">
@@ -207,20 +237,107 @@ export default function DiaryPage() {
         <div className="p-4 pb-24 space-y-4">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">여행 일기</h1>
-                <Button onClick={openNewEntry} size="icon" className="h-8 w-8 rounded-full">
-                    <Plus className="w-5 h-5" />
-                </Button>
+                <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setShowFilters(!showFilters)}
+                    >
+                        <Filter className="w-4 h-4" />
+                    </Button>
+                    <Button onClick={openNewEntry} size="icon" className="h-8 w-8 rounded-full">
+                        <Plus className="w-5 h-5" />
+                    </Button>
+                </div>
             </div>
 
-            {entries.length === 0 ? (
+            {/* 필터 섹션 */}
+            {showFilters && (
+                <Card className="p-4 space-y-4">
+                    <div className="space-y-2">
+                        <Label className="text-sm font-medium">기분 필터</Label>
+                        <div className="flex flex-wrap gap-2">
+                            {MOODS.map(mood => {
+                                const Icon = mood.icon;
+                                const isSelected = selectedMoods.includes(mood.value);
+                                return (
+                                    <button
+                                        key={mood.value}
+                                        type="button"
+                                        onClick={() => toggleFilterMood(mood.value)}
+                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${
+                                            isSelected
+                                                ? mood.color + " ring-2 ring-offset-1 ring-primary"
+                                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                        }`}
+                                    >
+                                        <Icon className="w-4 h-4" />
+                                        {mood.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {selectedMoods.length > 0 && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setSelectedMoods([])}
+                                className="text-xs"
+                            >
+                                필터 초기화
+                            </Button>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label className="text-sm font-medium">날짜 범위</Label>
+                        <div className="flex gap-2">
+                            <Input
+                                type="date"
+                                placeholder="시작 날짜"
+                                value={dateRangeStart}
+                                onChange={(e) => setDateRangeStart(e.target.value)}
+                                className="flex-1"
+                            />
+                            <span className="self-center">~</span>
+                            <Input
+                                type="date"
+                                placeholder="종료 날짜"
+                                value={dateRangeEnd}
+                                onChange={(e) => setDateRangeEnd(e.target.value)}
+                                className="flex-1"
+                            />
+                            {(dateRangeStart || dateRangeEnd) && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setDateRangeStart("");
+                                        setDateRangeEnd("");
+                                    }}
+                                >
+                                    초기화
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+            )}
+
+            {filteredEntries.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
                     <Calendar className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                    <p>아직 작성된 일기가 없습니다.</p>
-                    <p className="text-sm">오늘의 여행을 기록해보세요!</p>
+                    <p>조건에 맞는 일기가 없습니다.</p>
+                    <p className="text-sm">
+                        {entries.length === 0 
+                            ? "오늘의 여행을 기록해보세요!" 
+                            : "필터를 조정해보세요."}
+                    </p>
                 </div>
             ) : (
                 <div className="space-y-3">
-                    {entries.map((entry) => {
+                    {filteredEntries.map((entry) => {
 
                         return (
                             <Card

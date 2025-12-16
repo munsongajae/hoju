@@ -7,7 +7,11 @@ import { ScheduleList, ScheduleItemData, ScheduleType } from "@/components/sched
 import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 import { EditScheduleDialog } from "@/components/schedule/EditScheduleDialog";
 import { supabase } from "@/lib/supabase";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search, ArrowUpDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { addDays, isAfter, parse, set } from "date-fns";
 
 // Helper to format HH:MM:SS to HH:MM AM/PM
@@ -30,6 +34,9 @@ export default function SchedulePage() {
 
     const [selectedCity, setSelectedCity] = useState("전체");
     const [selectedDay, setSelectedDay] = useState<number | "all">("all");
+    const [searchQuery, setSearchQuery] = useState("");
+    const [sortBy, setSortBy] = useState<"time" | "city" | "completed">("time");
+    const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "incomplete">("all");
 
     // Edit Dialog State
     const [editingSchedule, setEditingSchedule] = useState<ScheduleItemData | null>(null);
@@ -124,12 +131,35 @@ export default function SchedulePage() {
     }
 
     const filteredItems = useMemo(() => {
-        return items.filter((item) => {
+        let filtered = items.filter((item) => {
             const cityMatch = selectedCity === "전체" || item.city === selectedCity;
             const dayMatch = selectedDay === "all" || item.day === selectedDay;
-            return cityMatch && dayMatch;
+            const searchMatch = !searchQuery || 
+                item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.memo && item.memo.toLowerCase().includes(searchQuery.toLowerCase()));
+            const completionMatch = completionFilter === "all" || 
+                (completionFilter === "completed" && item.isCompleted) ||
+                (completionFilter === "incomplete" && !item.isCompleted);
+            return cityMatch && dayMatch && searchMatch && completionMatch;
         });
-    }, [items, selectedCity, selectedDay]);
+
+        // 정렬 적용
+        filtered = [...filtered].sort((a, b) => {
+            switch (sortBy) {
+                case "time":
+                    if (!a.rawTime || !b.rawTime) return 0;
+                    return a.rawTime.localeCompare(b.rawTime);
+                case "city":
+                    return a.city.localeCompare(b.city, "ko");
+                case "completed":
+                    return (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0);
+                default:
+                    return 0;
+            }
+        });
+
+        return filtered;
+    }, [items, selectedCity, selectedDay, searchQuery, sortBy, completionFilter]);
 
     async function handleToggleComplete(item: ScheduleItemData) {
         const newValue = !item.isCompleted;
@@ -182,6 +212,68 @@ export default function SchedulePage() {
                     selectedDay={selectedDay}
                     onSelectDay={setSelectedDay}
                 />
+
+                {/* 검색 및 필터 */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="제목 또는 메모로 검색..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <Select value={sortBy} onValueChange={(value: "time" | "city" | "completed") => setSortBy(value)}>
+                            <SelectTrigger className="w-full sm:w-[140px]">
+                                <ArrowUpDown className="w-4 h-4 mr-2" />
+                                <SelectValue placeholder="정렬" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="time">시간순</SelectItem>
+                                <SelectItem value="city">도시순</SelectItem>
+                                <SelectItem value="completed">완료 여부</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <div className="flex gap-1 bg-muted p-1 rounded-lg">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "h-8 px-3 text-xs rounded-md",
+                                    completionFilter === "all" && "bg-background shadow-sm"
+                                )}
+                                onClick={() => setCompletionFilter("all")}
+                            >
+                                전체
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "h-8 px-3 text-xs rounded-md",
+                                    completionFilter === "completed" && "bg-background shadow-sm"
+                                )}
+                                onClick={() => setCompletionFilter("completed")}
+                            >
+                                완료
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                    "h-8 px-3 text-xs rounded-md",
+                                    completionFilter === "incomplete" && "bg-background shadow-sm"
+                                )}
+                                onClick={() => setCompletionFilter("incomplete")}
+                            >
+                                미완료
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 pb-24">
