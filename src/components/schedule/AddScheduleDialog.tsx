@@ -24,6 +24,7 @@ import { Plus, Loader2, CalendarIcon } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ScheduleType } from "./ScheduleList";
 import { addDays, format, differenceInCalendarDays } from "date-fns";
+import { useTrip } from "@/contexts/TripContext";
 import { ko } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -54,7 +55,7 @@ export function AddScheduleDialog({
 }: AddScheduleDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [tripId, setTripId] = useState<string>("");
+    const { selectedTripId, selectedTrip } = useTrip();
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
 
     const isControlled = open !== undefined;
@@ -85,27 +86,20 @@ export function AddScheduleDialog({
         }
     }, [finalOpen, initialData, isControlled]);
 
-    // Fetch a trip ID and start date
+    // Fetch trip start date
     useEffect(() => {
-        if (finalOpen) {
-            const fetchTrip = async () => {
-                const { data } = await supabase.from('trips').select('id, start_date').limit(1).single();
-                if (data) {
-                    setTripId(data.id);
-                    if (data.start_date) {
-                        const start = new Date(data.start_date);
-                        setTripStartDate(start);
-                        // Initialize selectedDate based on current day
-                        const currentDay = parseInt(day);
-                        if (!isNaN(currentDay) && currentDay > 0) {
-                            setSelectedDate(addDays(start, currentDay - 1));
-                        }
-                    }
+        if (finalOpen && selectedTrip) {
+            if (selectedTrip.start_date) {
+                const start = new Date(selectedTrip.start_date);
+                setTripStartDate(start);
+                // Initialize selectedDate based on current day
+                const currentDay = parseInt(day);
+                if (!isNaN(currentDay) && currentDay > 0) {
+                    setSelectedDate(addDays(start, currentDay - 1));
                 }
             }
-            fetchTrip();
         }
-    }, [finalOpen]);
+    }, [finalOpen, selectedTrip, day]);
 
     // Sync Date -> Day
     const handleDateSelect = (date: Date | undefined) => {
@@ -129,15 +123,15 @@ export function AddScheduleDialog({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!tripId) {
-            alert("여행 정보를 찾을 수 없습니다.");
+        if (!selectedTripId) {
+            alert("여행을 선택해주세요.");
             return;
         }
         setLoading(true);
 
         try {
             const { error } = await supabase.from("schedules").insert([{
-                trip_id: tripId,
+                trip_id: selectedTripId,
                 day_number: parseInt(day),
                 city,
                 start_time: startTime,
@@ -215,7 +209,6 @@ export function AddScheduleDialog({
                                 id="day"
                                 type="number"
                                 min="1"
-                                max="30"
                                 value={day}
                                 onChange={(e) => handleDayChange(e.target.value)}
                                 required

@@ -10,6 +10,7 @@ import { BudgetSummary } from "@/components/expenses/BudgetSummary";
 import { ExpenseAnalysis } from "@/components/expenses/ExpenseAnalysis";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Search, ArrowUpDown, Eye, EyeOff } from "lucide-react";
+import { useTrip } from "@/contexts/TripContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,11 +24,12 @@ export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<ExpenseData[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
+  const { selectedTripId } = useTrip();
 
   // 섹션 토글 상태
-  const [showBudget, setShowBudget] = useState(true);
-  const [showAnalysis, setShowAnalysis] = useState(true);
-  const [showFilters, setShowFilters] = useState(true);
+  const [showBudget, setShowBudget] = useState(false);
+  const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   // 검색 및 필터 상태
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,15 +51,31 @@ export default function ExpensesPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
-    fetchExpenses();
-  }, []);
+    if (selectedTripId) {
+      fetchExpenses();
+    }
+  }, [selectedTripId]);
 
   async function fetchExpenses() {
+    if (!selectedTripId) {
+      setLoading(false);
+      setExpenses([]);
+      return;
+    }
+
     try {
       setLoading(true);
+      // schedule 정보도 함께 가져오기
       const { data, error } = await supabase
         .from("expenses")
-        .select("*")
+        .select(`
+          *,
+          schedules:schedule_id (
+            id,
+            title
+          )
+        `)
+        .eq("trip_id", selectedTripId)
         .order("date", { ascending: false });
 
       if (error) {
@@ -71,6 +89,8 @@ export default function ExpensesPage() {
           title: item.title,
           city: item.city,
           currency: item.currency,
+          scheduleId: item.schedule_id,
+          scheduleTitle: item.schedules?.title, // 연동된 일정 제목
         }));
         setExpenses(formattedData);
       }

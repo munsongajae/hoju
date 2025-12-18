@@ -20,6 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { supabase } from "@/lib/supabase";
+import { useTrip } from "@/contexts/TripContext";
 
 const CATEGORIES: PlaceCategory[] = ["tour", "food", "play", "shop", "museum", "medical", "market"];
 
@@ -44,15 +45,30 @@ export default function PlacesPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
 
+    const { selectedTripId } = useTrip();
+
     const fetchPlaces = useCallback(async () => {
+        if (!selectedTripId) {
+            setLoading(false);
+            setPlaces([]);
+            return;
+        }
+
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from('places')
-                .select('*');
+                .select('*')
+                .eq('trip_id', selectedTripId);
 
             if (error) {
                 console.error('Error fetching places:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    code: error.code,
+                    details: error.details,
+                    hint: error.hint,
+                });
             } else if (data) {
                 const formattedData: PlaceData[] = data.map((item: any) => ({
                     id: item.id,
@@ -79,11 +95,13 @@ export default function PlacesPage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [selectedTripId]);
 
     useEffect(() => {
-        fetchPlaces();
-    }, [fetchPlaces]);
+        if (selectedTripId) {
+            fetchPlaces();
+        }
+    }, [selectedTripId, fetchPlaces]);
 
     // Derived State for Filtering
     const filteredPlaces = useMemo(() => {

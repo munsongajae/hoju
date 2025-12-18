@@ -8,6 +8,7 @@ import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 import { EditScheduleDialog } from "@/components/schedule/EditScheduleDialog";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Search, ArrowUpDown } from "lucide-react";
+import { useTrip } from "@/contexts/TripContext";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ export default function SchedulePage() {
     const [items, setItems] = useState<ScheduleItemData[]>([]);
     const [loading, setLoading] = useState(true);
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
+    const { selectedTripId, selectedTrip } = useTrip();
 
     const [selectedCity, setSelectedCity] = useState("전체");
     const [selectedDay, setSelectedDay] = useState<number | "all">("all");
@@ -42,9 +44,11 @@ export default function SchedulePage() {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
 
     useEffect(() => {
-        fetchSchedules();
-        fetchTripInfo();
-    }, []);
+        if (selectedTripId) {
+            fetchSchedules();
+            fetchTripInfo();
+        }
+    }, [selectedTripId, selectedTrip]);
 
     // Auto-complete past schedule items
     useEffect(() => {
@@ -86,23 +90,23 @@ export default function SchedulePage() {
     }, [items, tripStartDate]);
 
     async function fetchTripInfo() {
-        const { data } = await supabase
-            .from('trips')
-            .select('start_date')
-            .limit(1)
-            .single();
-
-        if (data) {
-            setTripStartDate(new Date(data.start_date));
+        if (selectedTrip && selectedTrip.start_date) {
+            setTripStartDate(new Date(selectedTrip.start_date));
         }
     }
 
     async function fetchSchedules() {
+        if (!selectedTripId) {
+            setLoading(false);
+            return;
+        }
+
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from('schedules')
                 .select('*')
+                .eq('trip_id', selectedTripId)
                 .order('day_number', { ascending: true })
                 .order('start_time', { ascending: true });
 
@@ -128,6 +132,12 @@ export default function SchedulePage() {
             setLoading(false);
         }
     }
+
+    const maxDay = useMemo(() => {
+        if (items.length === 0) return 30;
+        const max = Math.max(...items.map(item => item.day));
+        return Math.max(max, 30); // 최소 30일은 보장
+    }, [items]);
 
     const filteredItems = useMemo(() => {
         let filtered = items.filter((item) => {
@@ -204,7 +214,7 @@ export default function SchedulePage() {
                 />
 
                 <DayFilter
-                    days={30}
+                    days={maxDay}
                     selectedDay={selectedDay}
                     onSelectDay={setSelectedDay}
                 />

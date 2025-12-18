@@ -23,7 +23,8 @@ import { Loader2, Trash2, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ScheduleType, ScheduleItemData } from "./ScheduleList";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
-import { ExpenseCategory } from "@/components/expenses/ExpenseList";
+import { ExpenseData, ExpenseCategory } from "@/components/expenses/ExpenseList";
+import { useTrip } from "@/contexts/TripContext";
 import { addDays, format, differenceInCalendarDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Calendar } from "@/components/ui/calendar";
@@ -74,19 +75,17 @@ export function EditScheduleDialog({
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
+    // 연동된 지출
+    const [linkedExpenses, setLinkedExpenses] = useState<ExpenseData[]>([]);
+    const [loadingExpenses, setLoadingExpenses] = useState(false);
+
     // Fetch Trip Start Date
+    const { selectedTrip } = useTrip();
     useEffect(() => {
-        const fetchTrip = async () => {
-            // Assuming single trip for now or fetching the one related to schedule if possible
-            // But schedule doesn't have trip_id in the interface usually? 
-            // Actually AddScheduleDialog fetches the single trip. We'll do the same.
-            const { data } = await supabase.from('trips').select('start_date').limit(1).single();
-            if (data && data.start_date) {
-                setTripStartDate(new Date(data.start_date));
-            }
-        };
-        if (open) fetchTrip();
-    }, [open]);
+        if (open && selectedTrip && selectedTrip.start_date) {
+            setTripStartDate(new Date(selectedTrip.start_date));
+        }
+    }, [open, selectedTrip]);
 
     // Populate form when schedule changes
     useEffect(() => {
@@ -116,8 +115,45 @@ export function EditScheduleDialog({
                 if (ampm === "AM" && h === 12) h = 0;
                 setStartTime(`${String(h).padStart(2, '0')}:${m}`);
             }
+
+            // 연동된 지출 가져오기
+            fetchLinkedExpenses(schedule.id);
         }
     }, [schedule, tripStartDate]);
+
+    // 연동된 지출 가져오기
+    const fetchLinkedExpenses = async (scheduleId: string) => {
+        setLoadingExpenses(true);
+        try {
+            const { data, error } = await supabase
+                .from("expenses")
+                .select("*")
+                .eq("schedule_id", scheduleId)
+                .order("date", { ascending: false });
+
+            if (error) {
+                console.error("Error fetching linked expenses:", error);
+                return;
+            }
+
+            if (data) {
+                const formattedData: ExpenseData[] = data.map((item: any) => ({
+                    id: item.id,
+                    date: new Date(item.date),
+                    amount: item.amount,
+                    category: item.category as ExpenseCategory,
+                    title: item.title,
+                    city: item.city,
+                    currency: item.currency,
+                }));
+                setLinkedExpenses(formattedData);
+            }
+        } catch (err) {
+            console.error("Unexpected error:", err);
+        } finally {
+            setLoadingExpenses(false);
+        }
+    };
 
     // Sync Date -> Day
     const handleDateSelect = (date: Date | undefined) => {
@@ -236,7 +272,6 @@ export function EditScheduleDialog({
                                 id="edit-day"
                                 type="number"
                                 min="1"
-                                max="30"
                                 value={day}
                                 onChange={(e) => handleDayChange(e.target.value)}
                                 required
@@ -307,6 +342,44 @@ export function EditScheduleDialog({
                         />
                     </div>
 
+                    {/* 연동된 지출 목록 */}
+                    {schedule && (
+                        <div className="grid gap-2 border-t pt-4">
+                            <Label className="text-sm font-medium">연동된 지출</Label>
+                            {loadingExpenses ? (
+                                <div className="flex justify-center py-4">
+                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                </div>
+                            ) : linkedExpenses.length > 0 ? (
+                                <div className="space-y-2 max-h-40 overflow-y-auto">
+                                    {linkedExpenses.map((expense) => {
+                                        const isKRW = expense.currency === 'KRW';
+                                        return (
+                                            <div
+                                                key={expense.id}
+                                                className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                                            >
+                                                <div className="flex-1">
+                                                    <p className="font-medium">{expense.title}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {format(expense.date, "MM/dd")} · {expense.city}
+                                                    </p>
+                                                </div>
+                                                <div className="font-semibold">
+                                                    {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground py-2">
+                                    연동된 지출이 없습니다.
+                                </p>
+                            )}
+                        </div>
+                    )}
+
                     <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between">
                         <Button
                             type="button"
@@ -330,9 +403,13 @@ export function EditScheduleDialog({
                                     title,
                                     date: new Date().toISOString().split('T')[0], // Default to today
                                     category: mapToExpenseCategory(type),
-                                    city
+                                    city,
+                                    scheduleId: schedule?.id // 일정과 연동
                                 }}
                                 onExpenseAdded={() => {
+                                    if (schedule?.id) {
+                                        fetchLinkedExpenses(schedule.id);
+                                    }
                                     alert('지출이 추가되었습니다.');
                                 }}
                             />

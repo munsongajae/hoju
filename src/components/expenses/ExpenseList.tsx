@@ -16,6 +16,8 @@ export interface ExpenseData {
     title: string;
     city: string;
     currency?: 'AUD' | 'KRW';
+    scheduleId?: string; // 연동된 일정 ID
+    scheduleTitle?: string; // 연동된 일정 제목 (표시용)
 }
 
 const categoryIcons: Record<ExpenseCategory, any> = {
@@ -68,6 +70,12 @@ export function ExpenseList({ expenses, onItemClick }: ExpenseListProps) {
                                     <span>·</span>
                                     <span>{expense.city}</span>
                                     {isKRW && <span className="text-orange-600 dark:text-orange-400 font-medium ml-1">KRW</span>}
+                                    {expense.scheduleTitle && (
+                                        <>
+                                            <span>·</span>
+                                            <span className="text-blue-600 dark:text-blue-400">📅 {expense.scheduleTitle}</span>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

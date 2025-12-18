@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, Edit2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
+import { useTrip } from "@/contexts/TripContext";
 
 interface ManageChecklistDialogProps {
     onSuccess: () => void;
@@ -21,12 +22,18 @@ export function ManageChecklistDialog({ onSuccess, categories }: ManageChecklist
     const [selectedCategory, setSelectedCategory] = useState(categories[0] || "기타");
     const [newCategory, setNewCategory] = useState("");
     const [loading, setLoading] = useState(false);
+    const { selectedTripId } = useTrip();
 
     // For deletion
     const [deleteId, setDeleteId] = useState("");
 
     const handleAdd = async () => {
         if (!itemLabel) return;
+        if (!selectedTripId) {
+            alert("여행을 선택해주세요.");
+            return;
+        }
+
         setLoading(true);
         try {
             const categoryToUse = selectedCategory === "new_category" ? newCategory : selectedCategory;
@@ -37,7 +44,8 @@ export function ManageChecklistDialog({ onSuccess, categories }: ManageChecklist
                 .insert([{
                     label: itemLabel,
                     category: categoryToUse,
-                    is_checked: false
+                    is_checked: false,
+                    trip_id: selectedTripId,
                 }]);
 
             if (error) throw error;

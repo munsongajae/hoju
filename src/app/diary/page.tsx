@@ -19,6 +19,7 @@ import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Cal
 import { supabase } from "@/lib/supabase";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
+import { useTrip } from "@/contexts/TripContext";
 
 interface DiaryEntry {
     id: string;
@@ -45,8 +46,8 @@ export default function DiaryPage() {
     const [saving, setSaving] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [tripId, setTripId] = useState<string | null>(null);
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
+    const { selectedTripId, selectedTrip } = useTrip();
 
     // 필터 상태
     const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
@@ -63,23 +64,16 @@ export default function DiaryPage() {
     const [formHighlight, setFormHighlight] = useState("");
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (selectedTrip) {
+            setTripStartDate(parseISO(selectedTrip.start_date));
+            loadData();
+        }
+    }, [selectedTrip]);
 
     async function loadData() {
+        if (!selectedTripId) return;
+
         try {
-            // Load trip info
-            const { data: tripData } = await supabase
-                .from("trips")
-                .select("*")
-                .limit(1)
-                .single();
-
-            if (tripData) {
-                setTripId(tripData.id);
-                setTripStartDate(parseISO(tripData.start_date));
-            }
-
             // Load diary entries
             const { data: diaryData, error } = await supabase
                 .from("diaries")
@@ -119,7 +113,7 @@ export default function DiaryPage() {
     }
 
     async function handleSave() {
-        if (!tripId || !tripStartDate) return;
+        if (!selectedTripId || !tripStartDate) return;
 
         setSaving(true);
         try {
@@ -129,7 +123,7 @@ export default function DiaryPage() {
             const dayNum = isTripStarted ? diffDays + 1 : Math.abs(diffDays);
 
             const diaryData = {
-                trip_id: tripId,
+                trip_id: selectedTripId,
                 day_number: isTripStarted ? dayNum : -dayNum, // 음수는 D-day 표시용
                 date: formDate,
                 title: formTitle || (isTripStarted ? `Day ${dayNum} 일기` : `D-${dayNum} 준비 일기`),

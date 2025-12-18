@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { PlaceCategory } from "@/components/places/PlaceCard";
+import { useTrip } from "@/contexts/TripContext";
 
 interface AddPlaceDialogProps {
     onPlaceAdded: () => void;
@@ -50,6 +51,11 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!selectedTripId) {
+            alert("여행을 선택해주세요.");
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -67,6 +73,7 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                 website_url: websiteUrl || null,
                 lat: lat ? parseFloat(lat) : null,
                 lng: lng ? parseFloat(lng) : null,
+                trip_id: selectedTripId,
             }]);
 
             if (error) throw error;

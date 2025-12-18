@@ -7,21 +7,31 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { useTrip } from "@/contexts/TripContext";
 
 export default function ChecklistPage() {
     const [groups, setGroups] = useState<ChecklistGroupData[]>([]);
     const [loading, setLoading] = useState(true);
+    const { selectedTripId } = useTrip();
 
     useEffect(() => {
-        fetchChecklists();
-    }, []);
+        if (selectedTripId) {
+            fetchChecklists();
+        } else {
+            setLoading(false);
+            setGroups([]);
+        }
+    }, [selectedTripId]);
 
     async function fetchChecklists() {
+        if (!selectedTripId) return;
+
         try {
             setLoading(true);
             const { data, error } = await supabase
                 .from("checklists")
                 .select("*")
+                .eq("trip_id", selectedTripId)
                 .order("id");
 
             if (error) {

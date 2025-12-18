@@ -7,46 +7,60 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/lib/supabase";
 import { ExpenseData } from "./ExpenseList";
+import { useTrip } from "@/contexts/TripContext";
 
 interface BudgetSummaryProps {
   expenses: ExpenseData[];
 }
 
-// 현재 스키마에서 기본 Trip ID (seed 데이터)
-const DEFAULT_TRIP_ID = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
-
 export function BudgetSummary({ expenses }: BudgetSummaryProps) {
-  const [totalBudgetAUD, setTotalBudgetAUD] = useState<string>("");
+  const { selectedTripId } = useTrip();
   const [totalBudgetKRW, setTotalBudgetKRW] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [loadingRate, setLoadingRate] = useState(true);
 
-  // 실제 지출 합계
+  // 환율 가져오기
+  useEffect(() => {
+    fetch('/api/exchange-rate')
+      .then(res => res.json())
+      .then(data => {
+        if (data.rate) setExchangeRate(data.rate);
+      })
+      .catch(err => console.error("Failed to fetch rate:", err))
+      .finally(() => setLoadingRate(false));
+  }, []);
+
+  // 실제 지출 합계 (모든 통화를 원화로 합산)
+  const safeRate = exchangeRate || 900; // 기본값 900
+  
+  const totalSpentKRWDirect = expenses
+    .filter((e) => e.currency === "KRW")
+    .reduce((sum, item) => sum + item.amount, 0);
+
   const totalSpentAUD = expenses
     .filter((e) => !e.currency || e.currency === "AUD")
     .reduce((sum, item) => sum + item.amount, 0);
 
-  const totalSpentKRW = expenses
-    .filter((e) => e.currency === "KRW")
-    .reduce((sum, item) => sum + item.amount, 0);
+  // AUD 지출을 원화로 환산하여 합산
+  const totalSpentKRW = totalSpentKRWDirect + (totalSpentAUD * safeRate);
 
-  const ratioAUD =
-    totalBudgetAUD && Number(totalBudgetAUD) > 0
-      ? totalSpentAUD / Number(totalBudgetAUD)
-      : 0;
   const ratioKRW =
     totalBudgetKRW && Number(totalBudgetKRW) > 0
       ? totalSpentKRW / Number(totalBudgetKRW)
       : 0;
 
   useEffect(() => {
+    if (!selectedTripId) return;
+
     const fetchBudget = async () => {
       setLoading(true);
       try {
         const { data, error } = await supabase
           .from("trip_budgets")
-          .select("total_budget_aud, total_budget_krw")
-          .eq("trip_id", DEFAULT_TRIP_ID)
+          .select("total_budget_krw")
+          .eq("trip_id", selectedTripId)
           .maybeSingle();
 
         if (error) {
@@ -54,13 +68,10 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
           return;
         }
 
-        if (data) {
-          if (data.total_budget_aud != null) {
-            setTotalBudgetAUD(String(Number(data.total_budget_aud)));
-          }
-          if (data.total_budget_krw != null) {
-            setTotalBudgetKRW(String(Number(data.total_budget_krw)));
-          }
+        if (data && data.total_budget_krw != null) {
+          setTotalBudgetKRW(String(Number(data.total_budget_krw)));
+        } else {
+          setTotalBudgetKRW("");
         }
       } finally {
         setLoading(false);
@@ -68,21 +79,24 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
     };
 
     fetchBudget();
-  }, []);
+  }, [selectedTripId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedTripId) {
+      alert("여행을 선택해주세요.");
+      return;
+    }
+
     setSaving(true);
     try {
-      const totalAUDNumber = totalBudgetAUD ? Number(totalBudgetAUD) : null;
       const totalKRWNumber = totalBudgetKRW ? Number(totalBudgetKRW) : null;
 
       const { error } = await supabase
         .from("trip_budgets")
         .upsert(
           {
-            trip_id: DEFAULT_TRIP_ID,
-            total_budget_aud: totalAUDNumber,
+            trip_id: selectedTripId,
             total_budget_krw: totalKRWNumber,
           },
           { onConflict: "trip_id" }
@@ -126,42 +140,39 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSave} className="space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">전체 예산 (AUD)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={totalBudgetAUD}
-                onChange={(e) => setTotalBudgetAUD(e.target.value)}
-                placeholder="예: 5000"
-              />
-              <div className="text-[11px] text-muted-foreground flex justify-between">
-                <span>사용액: A$ {totalSpentAUD.toLocaleString()}</span>
-                {totalBudgetAUD && Number(totalBudgetAUD) > 0 && (
-                  <span>{Math.round(ratioAUD * 100)}%</span>
+          <div className="space-y-1">
+            <Label className="text-xs">전체 예산 (KRW)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={totalBudgetKRW}
+              onChange={(e) => setTotalBudgetKRW(e.target.value)}
+              placeholder="예: 3,000,000"
+            />
+            <div className="text-[11px] text-muted-foreground flex justify-between">
+              <span>
+                사용액: ₩ {Math.round(totalSpentKRW).toLocaleString()}
+                {totalSpentAUD > 0 && (
+                  <span className="ml-1 text-[10px]">
+                    (A$ {totalSpentAUD.toLocaleString()} 포함)
+                  </span>
                 )}
-              </div>
-              {totalBudgetAUD && Number(totalBudgetAUD) > 0 && renderBar(ratioAUD)}
+              </span>
+              {totalBudgetKRW && Number(totalBudgetKRW) > 0 && (
+                <span>{Math.round(ratioKRW * 100)}%</span>
+              )}
             </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs">전체 예산 (KRW)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={totalBudgetKRW}
-                onChange={(e) => setTotalBudgetKRW(e.target.value)}
-                placeholder="예: 3,000,000"
-              />
-              <div className="text-[11px] text-muted-foreground flex justify-between">
-                <span>사용액: ₩ {totalSpentKRW.toLocaleString()}</span>
-                {totalBudgetKRW && Number(totalBudgetKRW) > 0 && (
-                  <span>{Math.round(ratioKRW * 100)}%</span>
-                )}
+            {loadingRate && (
+              <div className="text-[10px] text-muted-foreground">
+                환율 로딩 중...
               </div>
-              {totalBudgetKRW && Number(totalBudgetKRW) > 0 && renderBar(ratioKRW)}
-            </div>
+            )}
+            {!loadingRate && exchangeRate && (
+              <div className="text-[10px] text-muted-foreground">
+                환율: 1 AUD = {exchangeRate} KRW
+              </div>
+            )}
+            {totalBudgetKRW && Number(totalBudgetKRW) > 0 && renderBar(ratioKRW)}
           </div>
 
           <div className="flex justify-end">
@@ -171,7 +182,7 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
           </div>
         </form>
 
-        {(ratioAUD > 1 || ratioKRW > 1) && (
+        {ratioKRW > 1 && (
           <div className="text-xs text-red-600 dark:text-red-400">
             예산을 초과했습니다. 지출을 다시 점검해 보세요.
           </div>
@@ -180,3 +191,5 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
     </Card>
   );
 }
+
+

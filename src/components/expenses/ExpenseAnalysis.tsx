@@ -83,3 +83,5 @@ export function ExpenseAnalysis({ expenses }: ExpenseAnalysisProps) {
     </Card>
   );
 }
+
+

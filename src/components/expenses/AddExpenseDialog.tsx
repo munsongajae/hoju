@@ -22,6 +22,7 @@ import {
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ExpenseCategory } from "./ExpenseList";
+import { useTrip } from "@/contexts/TripContext";
 
 interface AddExpenseDialogProps {
     onExpenseAdded: () => void;
@@ -33,6 +34,7 @@ interface AddExpenseDialogProps {
         category?: ExpenseCategory;
         city?: string;
         amount?: number;
+        scheduleId?: string; // 일정과 연동하기 위한 schedule_id
     };
     trigger?: React.ReactNode;
 }
@@ -46,7 +48,7 @@ export function AddExpenseDialog({
 }: AddExpenseDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [tripId, setTripId] = useState<string>("");
+    const { selectedTripId } = useTrip();
 
     const isControlled = open !== undefined;
     const finalOpen = isControlled ? open : internalOpen;
@@ -78,35 +80,31 @@ export function AddExpenseDialog({
         }
     }, [finalOpen, initialData, isControlled]);
 
-    useEffect(() => {
-        if (finalOpen) {
-            // Ideally we fetch current trip from context or URL, here just grab first trip
-            const fetchTrip = async () => {
-                const { data } = await supabase.from('trips').select('id').limit(1).single();
-                if (data) setTripId(data.id);
-            }
-            fetchTrip();
-        }
-    }, [finalOpen]);
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!tripId) {
-            alert("여행 정보를 찾을 수 없습니다.");
+        if (!selectedTripId) {
+            alert("여행을 선택해주세요.");
             return;
         }
         setLoading(true);
 
         try {
-            const { error } = await supabase.from("expenses").insert([{
-                trip_id: tripId,
+            const expenseData: any = {
+                trip_id: selectedTripId,
                 date: new Date(date).toISOString(),
                 amount: parseFloat(amount),
                 title,
                 category,
                 city,
                 currency
-            }]);
+            };
+            
+            // schedule_id가 있으면 추가
+            if (initialData?.scheduleId) {
+                expenseData.schedule_id = initialData.scheduleId;
+            }
+            
+            const { error } = await supabase.from("expenses").insert([expenseData]);
 
             if (error) throw error;
 
