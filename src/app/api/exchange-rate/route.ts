@@ -1,10 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
+const CURRENCY_PAIRS: Record<string, string> = {
+    'AUD': 'AUDKRW=X',
+    'USD': 'USDKRW=X',
+    'VND': 'VNDKRW=X',
+};
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
+        const searchParams = request.nextUrl.searchParams;
+        const currency = searchParams.get('currency') || 'AUD';
+        const pair = CURRENCY_PAIRS[currency.toUpperCase()] || CURRENCY_PAIRS['AUD'];
+
         // Yahoo Finance API
-        const response = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/AUDKRW=X', {
+        const response = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${pair}`, {
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
             },
@@ -27,6 +36,7 @@ export async function GET() {
 
         return NextResponse.json({
             rate,
+            currency: currency.toUpperCase(),
             timestamp: new Date().toISOString(),
             source: 'Yahoo Finance'
         });

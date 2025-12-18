@@ -61,9 +61,23 @@ export default function SettingsPage() {
     const [loadingStats, setLoadingStats] = useState(false);
 
     // 환율 설정
-    const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-    const [customExchangeRate, setCustomExchangeRate] = useState<string>("");
-    const [useCustomRate, setUseCustomRate] = useState(false);
+    type Currency = 'AUD' | 'USD' | 'VND';
+    const [selectedCurrency, setSelectedCurrency] = useState<Currency>('AUD');
+    const [exchangeRates, setExchangeRates] = useState<Record<Currency, number | null>>({
+        AUD: null,
+        USD: null,
+        VND: null,
+    });
+    const [customExchangeRates, setCustomExchangeRates] = useState<Record<Currency, string>>({
+        AUD: "",
+        USD: "",
+        VND: "",
+    });
+    const [useCustomRates, setUseCustomRates] = useState<Record<Currency, boolean>>({
+        AUD: false,
+        USD: false,
+        VND: false,
+    });
     const [loadingRate, setLoadingRate] = useState(false);
 
     // 선택된 trip의 설정 로드
@@ -159,25 +173,65 @@ export default function SettingsPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedTripId]);
 
+    // 선택된 통화가 변경되면 해당 통화의 환율 로드
+    useEffect(() => {
+        if (selectedCurrency) {
+            loadExchangeRate();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedCurrency]);
+
     // 환율 로드
     const loadExchangeRate = async () => {
         setLoadingRate(true);
         try {
-            // 현재 환율 가져오기
-            const response = await fetch('/api/exchange-rate');
-            const data = await response.json();
-            if (data.rate) {
-                setExchangeRate(data.rate);
+            // 선택된 통화의 환율만 가져오기
+            try {
+                const response = await fetch(`/api/exchange-rate?currency=${selectedCurrency}`);
+                const data = await response.json();
+                if (data.rate) {
+                    setExchangeRates((prev) => ({
+                        ...prev,
+                        [selectedCurrency]: data.rate,
+                    }));
+                }
+            } catch (err) {
+                console.error(`Failed to load ${selectedCurrency} rate:`, err);
             }
 
             // 저장된 사용자 설정 환율 가져오기 (localStorage)
-            const savedCustomRate = localStorage.getItem('customExchangeRate');
-            const savedUseCustom = localStorage.getItem('useCustomExchangeRate');
+            const savedCustomRate = localStorage.getItem(`customExchangeRate_${selectedCurrency}`);
+            const savedUseCustom = localStorage.getItem(`useCustomExchangeRate_${selectedCurrency}`);
             if (savedCustomRate) {
-                setCustomExchangeRate(savedCustomRate);
+                setCustomExchangeRates((prev) => ({
+                    ...prev,
+                    [selectedCurrency]: savedCustomRate,
+                }));
             }
             if (savedUseCustom === 'true') {
-                setUseCustomRate(true);
+                setUseCustomRates((prev) => ({
+                    ...prev,
+                    [selectedCurrency]: true,
+                }));
+            }
+
+            // 저장된 선택된 통화 가져오기 (초기 로드 시)
+            const savedCurrency = localStorage.getItem('selectedCurrency') as Currency | null;
+            if (savedCurrency && ['AUD', 'USD', 'VND'].includes(savedCurrency)) {
+                setSelectedCurrency(savedCurrency);
+                // 저장된 통화의 환율도 로드
+                try {
+                    const response = await fetch(`/api/exchange-rate?currency=${savedCurrency}`);
+                    const data = await response.json();
+                    if (data.rate) {
+                        setExchangeRates((prev) => ({
+                            ...prev,
+                            [savedCurrency]: data.rate,
+                        }));
+                    }
+                } catch (err) {
+                    console.error(`Failed to load ${savedCurrency} rate:`, err);
+                }
             }
         } catch (err) {
             console.error("Failed to load exchange rate:", err);
@@ -187,20 +241,23 @@ export default function SettingsPage() {
     };
 
     // 환율 저장
-    const handleSaveExchangeRate = () => {
-        if (useCustomRate && customExchangeRate) {
-            const rate = parseFloat(customExchangeRate);
+    const handleSaveExchangeRate = (currency: Currency) => {
+        const useCustom = useCustomRates[currency];
+        const customRate = customExchangeRates[currency];
+
+        if (useCustom && customRate) {
+            const rate = parseFloat(customRate);
             if (isNaN(rate) || rate <= 0) {
                 toast.error("올바른 환율을 입력해주세요.");
                 return;
             }
-            localStorage.setItem('customExchangeRate', customExchangeRate);
-            localStorage.setItem('useCustomExchangeRate', 'true');
-            toast.success("환율 설정이 저장되었습니다.");
+            localStorage.setItem(`customExchangeRate_${currency}`, customRate);
+            localStorage.setItem(`useCustomExchangeRate_${currency}`, 'true');
+            toast.success(`${currency} 환율 설정이 저장되었습니다.`);
         } else {
-            localStorage.removeItem('customExchangeRate');
-            localStorage.setItem('useCustomExchangeRate', 'false');
-            toast.success("기본 환율을 사용합니다.");
+            localStorage.removeItem(`customExchangeRate_${currency}`);
+            localStorage.setItem(`useCustomExchangeRate_${currency}`, 'false');
+            toast.success(`${currency} 기본 환율을 사용합니다.`);
         }
     };
 
@@ -947,56 +1004,104 @@ export default function SettingsPage() {
                         </div>
                     ) : (
                         <>
-                            <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <Checkbox
-                                        id="useCustomRate"
-                                        checked={useCustomRate}
-                                        onCheckedChange={(checked) => setUseCustomRate(checked === true)}
-                                    />
-                                    <Label htmlFor="useCustomRate" className="cursor-pointer">
-                                        사용자 지정 환율 사용
-                                    </Label>
+                            <div className="space-y-4">
+                                {/* 외화 선택 */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="currencySelect">외화 선택</Label>
+                                    <select
+                                        id="currencySelect"
+                                        value={selectedCurrency}
+                                        onChange={(e) => {
+                                            const newCurrency = e.target.value as Currency;
+                                            setSelectedCurrency(newCurrency);
+                                            localStorage.setItem('selectedCurrency', newCurrency);
+                                            // 선택된 통화 변경 시 해당 통화의 환율 로드
+                                            loadExchangeRate();
+                                        }}
+                                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                    >
+                                        <option value="AUD">호주 달러 (AUD)</option>
+                                        <option value="USD">미국 달러 (USD)</option>
+                                        <option value="VND">베트남 동 (VND)</option>
+                                    </select>
                                 </div>
-                                {exchangeRate && !useCustomRate && (
-                                    <div className="p-3 bg-muted rounded-lg">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm">현재 환율 (자동)</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-sm font-medium">1 AUD = {exchangeRate} KRW</span>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-6 w-6"
-                                                    onClick={loadExchangeRate}
+
+                                {/* 선택된 외화 설정 */}
+                                <div className="space-y-2 p-3 border rounded-lg">
+                                    {(() => {
+                                        const currencyNames = { AUD: '호주 달러', USD: '미국 달러', VND: '베트남 동' };
+                                        const currency = selectedCurrency;
+                                        const useCustom = useCustomRates[currency];
+                                        const exchangeRate = exchangeRates[currency];
+                                        const customRate = customExchangeRates[currency];
+
+                                        return (
+                                            <>
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="font-medium">{currencyNames[currency]} ({currency})</Label>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-6 w-6"
+                                                        onClick={loadExchangeRate}
+                                                    >
+                                                        <RefreshCw className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Checkbox
+                                                        id={`useCustomRate_${currency}`}
+                                                        checked={useCustom}
+                                                        onCheckedChange={(checked) => 
+                                                            setUseCustomRates((prev) => ({
+                                                                ...prev,
+                                                                [currency]: checked === true,
+                                                            }))
+                                                        }
+                                                    />
+                                                    <Label htmlFor={`useCustomRate_${currency}`} className="cursor-pointer text-sm">
+                                                        사용자 지정 환율 사용
+                                                    </Label>
+                                                </div>
+                                                {exchangeRate && !useCustom && (
+                                                    <div className="p-2 bg-muted rounded">
+                                                        <span className="text-sm font-medium">1 {currency} = {exchangeRate} KRW</span>
+                                                    </div>
+                                                )}
+                                                {useCustom && (
+                                                    <div className="space-y-2">
+                                                        <Label htmlFor={`customRate_${currency}`} className="text-sm">
+                                                            사용자 지정 환율 (1 {currency} = ? KRW)
+                                                        </Label>
+                                                        <Input
+                                                            id={`customRate_${currency}`}
+                                                            type="number"
+                                                            step="0.01"
+                                                            min="1"
+                                                            value={customRate}
+                                                            onChange={(e) => 
+                                                                setCustomExchangeRates((prev) => ({
+                                                                    ...prev,
+                                                                    [currency]: e.target.value,
+                                                                }))
+                                                            }
+                                                            placeholder={exchangeRate ? exchangeRate.toString() : "환율 입력"}
+                                                        />
+                                                    </div>
+                                                )}
+                                                <Button 
+                                                    onClick={() => handleSaveExchangeRate(currency)} 
+                                                    className="w-full" 
+                                                    size="sm"
+                                                    variant="outline"
                                                 >
-                                                    <RefreshCw className="w-3 h-3" />
+                                                    {currency} 환율 저장
                                                 </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                                {useCustomRate && (
-                                    <div className="space-y-2">
-                                        <Label htmlFor="customRate">사용자 지정 환율 (1 AUD = ? KRW)</Label>
-                                        <Input
-                                            id="customRate"
-                                            type="number"
-                                            step="0.01"
-                                            min="1"
-                                            value={customExchangeRate}
-                                            onChange={(e) => setCustomExchangeRate(e.target.value)}
-                                            placeholder={exchangeRate ? exchangeRate.toString() : "900"}
-                                        />
-                                        <p className="text-xs text-muted-foreground">
-                                            예산 계산 시 이 환율을 사용합니다.
-                                        </p>
-                                    </div>
-                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
                             </div>
-                            <Button onClick={handleSaveExchangeRate} className="w-full" size="sm">
-                                환율 설정 저장
-                            </Button>
                         </>
                     )}
                         </CardContent>
