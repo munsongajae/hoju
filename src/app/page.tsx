@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
 import { TravelInfoSection } from "@/components/dashboard/TravelInfoSection";
+import { MemoSection } from "@/components/dashboard/MemoSection";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -146,9 +147,9 @@ export default function DashboardPage() {
           <span className="block text-2xl mb-1">✅</span>
           <span className="text-sm font-medium">체크리스트</span>
         </Link>
-        <Link href="/diary" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
-          <span className="block text-2xl mb-1">📔</span>
-          <span className="text-sm font-medium">오늘 일기</span>
+        <Link href="/memo" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
+          <span className="block text-2xl mb-1">📝</span>
+          <span className="text-sm font-medium">메모</span>
         </Link>
       </div>
 

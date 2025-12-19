@@ -269,13 +269,14 @@ export default function SettingsPage() {
                 return;
             }
 
-            const [tripsData, schedulesData, expensesData, placesData, checklistsData, budgetsData] = await Promise.all([
+            const [tripsData, schedulesData, expensesData, placesData, checklistsData, budgetsData, memosData] = await Promise.all([
                 supabase.from("trips").select("*").eq("id", selectedTripId),
                 supabase.from("schedules").select("*").eq("trip_id", selectedTripId),
                 supabase.from("expenses").select("*").eq("trip_id", selectedTripId),
                 supabase.from("places").select("*").eq("trip_id", selectedTripId),
                 supabase.from("checklists").select("*").eq("trip_id", selectedTripId),
                 supabase.from("trip_budgets").select("*").eq("trip_id", selectedTripId),
+                supabase.from("memos").select("*").eq("trip_id", selectedTripId),
             ]);
 
             const exportData = {
@@ -287,6 +288,7 @@ export default function SettingsPage() {
                 places: placesData.data || [],
                 checklists: checklistsData.data || [],
                 budgets: budgetsData.data || [],
+                memos: memosData.data || [],
             };
 
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
@@ -352,6 +354,10 @@ export default function SettingsPage() {
 
                 if (importData.budgets && importData.budgets.length > 0) {
                     await supabase.from("trip_budgets").upsert(importData.budgets, { onConflict: "trip_id" });
+                }
+
+                if (importData.memos && importData.memos.length > 0) {
+                    await supabase.from("memos").upsert(importData.memos, { onConflict: "id" });
                 }
 
                 // 가져온 trip이 있으면 선택
