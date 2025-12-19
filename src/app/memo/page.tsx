@@ -84,7 +84,7 @@ export default function MemoPage() {
     const openEditMemo = (memo: MemoItem) => {
         setEditingId(memo.id);
         setFormTitle(memo.title);
-        setFormContent(memo.content);
+        setFormContent(memo.content || "");
         setDialogOpen(true);
     };
 
