@@ -59,11 +59,8 @@ export function StatusCard({
                     </div>
                 </div>
 
-                <div className="mt-2 pt-2 border-t border-primary-foreground/20 flex justify-between items-center text-sm">
+                <div className="mt-2 pt-2 border-t border-primary-foreground/20 text-sm">
                     <span>{format(currentDate, "MMMM d (EEEE)")}</span>
-                    <span className="bg-white/20 px-2 py-1 rounded text-xs font-semibold">
-                        가족 {familyCount}인
-                    </span>
                 </div>
             </CardContent>
         </Card>

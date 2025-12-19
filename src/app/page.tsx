@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
-import { TravelInfoSection } from "@/components/dashboard/TravelInfoSection";
 import { MemoSection } from "@/components/dashboard/MemoSection";
 import { ExchangeRateCalculator } from "@/components/dashboard/ExchangeRateCalculator";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -186,6 +185,10 @@ export default function DashboardPage() {
           <span className="block text-2xl mb-1">💱</span>
           <span className="text-sm font-medium">환율계산기</span>
         </button>
+        <Link href="/travel-info" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
+          <span className="block text-2xl mb-1">🌍</span>
+          <span className="text-sm font-medium">여행 정보</span>
+        </Link>
         <Link href="/help" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
           <span className="block text-2xl mb-1">❓</span>
           <span className="text-sm font-medium">도움말</span>
@@ -204,7 +207,6 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
 
-      <TravelInfoSection />
     </div>
   );
 }
