@@ -76,6 +76,8 @@ export function AddScheduleDialog({
     const [type, setType] = useState<ScheduleType>("view");
     const [memo, setMemo] = useState("");
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+    const [placeId, setPlaceId] = useState<string>("none");
+    const [places, setPlaces] = useState<Array<{ id: string; name: string }>>([]);
 
     // Initialize with initialData when opening
     useEffect(() => {
@@ -86,7 +88,7 @@ export function AddScheduleDialog({
         }
     }, [finalOpen, initialData, isControlled]);
 
-    // Fetch trip start date
+    // Fetch trip start date and places
     useEffect(() => {
         if (finalOpen && selectedTrip) {
             if (selectedTrip.start_date) {
@@ -100,6 +102,36 @@ export function AddScheduleDialog({
             }
         }
     }, [finalOpen, selectedTrip, day]);
+
+    // Fetch places when dialog opens
+    useEffect(() => {
+        if (finalOpen && selectedTripId) {
+            fetchPlaces();
+        }
+    }, [finalOpen, selectedTripId, city]);
+
+    const fetchPlaces = async () => {
+        if (!selectedTripId) return;
+        try {
+            const { data, error } = await supabase
+                .from("places")
+                .select("id, name")
+                .eq("trip_id", selectedTripId)
+                .eq("city", city)
+                .order("name");
+
+            if (error) {
+                console.error("Error fetching places:", error);
+                return;
+            }
+
+            if (data) {
+                setPlaces(data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch places:", err);
+        }
+    };
 
     // Sync Date -> Day
     const handleDateSelect = (date: Date | undefined) => {
@@ -138,12 +170,14 @@ export function AddScheduleDialog({
                 title,
                 type,
                 memo,
+                place_id: placeId === "none" ? null : placeId,
             }]);
 
             if (error) throw error;
 
             setTitle("");
             setMemo("");
+            setPlaceId("none");
             setFinalOpen(false);
             onScheduleAdded();
         } catch (error) {
@@ -167,10 +201,11 @@ export function AddScheduleDialog({
                     </Button>
                 </DialogTrigger>
             )}
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] !flex !flex-col overflow-hidden">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle>새 일정 추가</DialogTitle>
                 </DialogHeader>
+                <div className="overflow-y-auto flex-1 min-h-0">
                 <form onSubmit={handleSubmit} className="grid gap-4 py-4">
 
                     <div className="grid grid-cols-2 gap-4">
@@ -219,7 +254,10 @@ export function AddScheduleDialog({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="city">도시</Label>
-                            <Select value={city} onValueChange={setCity}>
+                            <Select value={city} onValueChange={(value) => {
+                                setCity(value);
+                                setPlaceId("none"); // 도시 변경 시 장소 초기화
+                            }}>
                                 <SelectTrigger id="city">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -229,6 +267,23 @@ export function AddScheduleDialog({
                                 </SelectContent>
                             </Select>
                         </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="place">장소 연동 (선택)</Label>
+                        <Select value={placeId} onValueChange={setPlaceId}>
+                            <SelectTrigger id="place">
+                                <SelectValue placeholder="장소를 선택하세요" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">장소 없음</SelectItem>
+                                {places.map((place) => (
+                                    <SelectItem key={place.id} value={place.id}>
+                                        {place.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="grid gap-2">
@@ -280,13 +335,14 @@ export function AddScheduleDialog({
                         />
                     </div>
 
-                    <DialogFooter>
+                    <DialogFooter className="flex-shrink-0">
                         <Button type="submit" disabled={loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             추가하기
                         </Button>
                     </DialogFooter>
                 </form>
+                </div>
             </DialogContent>
         </Dialog>
     );

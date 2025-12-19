@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check } from "lucide-react";
+import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check, MapPin } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
 
@@ -19,6 +19,12 @@ export interface ScheduleItemData {
     type: ScheduleType;
     memo?: string;
     isCompleted?: boolean;
+    place_id?: string | null;
+    place?: {
+        id: string;
+        name: string;
+        category?: string;
+    } | null;
 }
 
 interface ScheduleListProps {
@@ -119,6 +125,14 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
                                             <time className="text-xs text-muted-foreground font-mono">{item.time}</time>
                                         </div>
 
+                                        {item.place && (
+                                            <div className="flex items-center gap-1 mt-1">
+                                                <MapPin className="w-3 h-3 text-muted-foreground" />
+                                                <span className="text-xs text-muted-foreground font-medium">
+                                                    {item.place.name}
+                                                </span>
+                                            </div>
+                                        )}
                                         {item.memo && (
                                             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                                                 {item.memo}

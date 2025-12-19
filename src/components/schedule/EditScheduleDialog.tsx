@@ -70,6 +70,8 @@ export function EditScheduleDialog({
     const [title, setTitle] = useState("");
     const [type, setType] = useState<ScheduleType>("view");
     const [memo, setMemo] = useState("");
+    const [placeId, setPlaceId] = useState<string>("none");
+    const [places, setPlaces] = useState<Array<{ id: string; name: string }>>([]);
 
     // Date Logic
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
@@ -87,6 +89,37 @@ export function EditScheduleDialog({
         }
     }, [open, selectedTrip]);
 
+    // Fetch places when dialog opens or city changes
+    const { selectedTripId } = useTrip();
+    useEffect(() => {
+        if (open && selectedTripId) {
+            fetchPlaces();
+        }
+    }, [open, selectedTripId, city]);
+
+    const fetchPlaces = async () => {
+        if (!selectedTripId) return;
+        try {
+            const { data, error } = await supabase
+                .from("places")
+                .select("id, name")
+                .eq("trip_id", selectedTripId)
+                .eq("city", city)
+                .order("name");
+
+            if (error) {
+                console.error("Error fetching places:", error);
+                return;
+            }
+
+            if (data) {
+                setPlaces(data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch places:", err);
+        }
+    };
+
     // Populate form when schedule changes
     useEffect(() => {
         if (schedule) {
@@ -95,6 +128,7 @@ export function EditScheduleDialog({
             setTitle(schedule.title);
             setType(schedule.type);
             setMemo(schedule.memo || "");
+            setPlaceId((schedule as any).place_id || "none");
 
             // Calculate date if tripStartDate is available
             if (tripStartDate) {
@@ -190,6 +224,7 @@ export function EditScheduleDialog({
                     title,
                     type,
                     memo,
+                    place_id: placeId === "none" ? null : placeId,
                 })
                 .eq('id', schedule.id);
 
@@ -283,7 +318,10 @@ export function EditScheduleDialog({
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="edit-city">도시</Label>
-                            <Select value={city} onValueChange={setCity}>
+                            <Select value={city} onValueChange={(value) => {
+                                setCity(value);
+                                setPlaceId("none"); // 도시 변경 시 장소 초기화
+                            }}>
                                 <SelectTrigger id="edit-city">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -303,6 +341,23 @@ export function EditScheduleDialog({
                                 required
                             />
                         </div>
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-place">장소 연동 (선택)</Label>
+                        <Select value={placeId} onValueChange={setPlaceId}>
+                            <SelectTrigger id="edit-place">
+                                <SelectValue placeholder="장소를 선택하세요" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">장소 없음</SelectItem>
+                                {places.map((place) => (
+                                    <SelectItem key={place.id} value={place.id}>
+                                        {place.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <div className="grid gap-2">

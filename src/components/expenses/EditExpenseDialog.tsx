@@ -18,7 +18,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Calendar, ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { ExpenseData, ExpenseCategory } from "./ExpenseList";
 
@@ -207,6 +208,27 @@ export function EditExpenseDialog({
                             </SelectContent>
                         </Select>
                     </div>
+
+                    {/* 연동된 일정 정보 */}
+                    {expense?.scheduleTitle && (
+                        <div className="grid gap-2 border-t pt-4">
+                            <Label className="text-sm font-medium">연동된 일정</Label>
+                            <Link
+                                href="/schedule"
+                                className="flex items-center gap-2 p-3 bg-muted rounded-md hover:bg-muted/80 transition-colors"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    onOpenChange(false);
+                                    // 일정 페이지로 이동 (필요시 스크롤/필터링 로직 추가 가능)
+                                    window.location.href = "/schedule";
+                                }}
+                            >
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-medium flex-1">{expense.scheduleTitle}</span>
+                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                            </Link>
+                        </div>
+                    )}
 
                     <DialogFooter className="flex justify-between sm:justify-between gap-2">
                         <Button

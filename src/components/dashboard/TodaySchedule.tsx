@@ -11,7 +11,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Clock, Tag, AlignLeft, Plus } from "lucide-react";
+import { Clock, Tag, AlignLeft, Plus, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { ExpenseCategory } from "@/components/expenses/ExpenseList";
@@ -23,6 +23,10 @@ interface ScheduleItem {
     type: "view" | "food" | "move" | "rest" | "shop" | "kids";
     completed?: boolean;
     memo?: string;
+    place?: {
+        id: string;
+        name: string;
+    } | null;
 }
 
 interface TodayScheduleProps {
@@ -106,10 +110,15 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                     {item.time}
                                 </time>
                             </div>
-                            <div className="mt-1 flex items-center gap-2">
+                            <div className="mt-1 flex items-center gap-2 flex-wrap">
                                 <Badge variant="secondary" className={cn("text-[10px] font-medium border-0", typeColors[item.type])}>
                                     {item.type.toUpperCase()}
                                 </Badge>
+                                {item.place && (
+                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" /> {item.place.name}
+                                    </span>
+                                )}
                                 {item.memo && (
                                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                                         <AlignLeft className="w-3 h-3" /> 메모
@@ -148,6 +157,14 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                 </Badge>
                             </div>
 
+                            {selectedItem.place && (
+                                <div className="flex items-center gap-2 text-sm">
+                                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">장소:</span>
+                                    <span>{selectedItem.place.name}</span>
+                                </div>
+                            )}
+
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-sm">
                                     <AlignLeft className="w-4 h-4 text-muted-foreground" />
@@ -170,7 +187,9 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                         title: selectedItem.title,
                                         date: new Date().toISOString().split('T')[0],
                                         category: mapToExpenseCategory(selectedItem.type),
-                                        city: currentCity
+                                        city: currentCity,
+                                        // 홈 화면에서도 이 일정과 지출이 연동되도록 scheduleId 설정
+                                        scheduleId: selectedItem.id,
                                     }}
                                     onExpenseAdded={() => {
                                         alert('지출이 추가되었습니다.');

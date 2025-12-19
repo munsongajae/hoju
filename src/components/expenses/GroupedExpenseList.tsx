@@ -105,12 +105,21 @@ export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedE
                                                 {viewMode === "weekly" && (
                                                     <p className="text-xs text-muted-foreground">
                                                         {format(expense.date, "M/d")} · {expense.city}
+                                                        {expense.scheduleTitle && (
+                                                            <> · <span className="text-blue-600 dark:text-blue-400">📅 {expense.scheduleTitle}</span></>
+                                                        )}
                                                     </p>
                                                 )}
                                                 {viewMode === "daily" && (
-                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                                                         <span>{expense.city}</span>
                                                         {isKRW && <span className="text-orange-600 dark:text-orange-400 font-medium">KRW</span>}
+                                                        {expense.scheduleTitle && (
+                                                            <>
+                                                                <span>·</span>
+                                                                <span className="text-blue-600 dark:text-blue-400">📅 {expense.scheduleTitle}</span>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>

@@ -70,10 +70,7 @@ export default function ExpensesPage() {
         .from("expenses")
         .select(`
           *,
-          schedules:schedule_id (
-            id,
-            title
-          )
+          schedule:schedules(id, title)
         `)
         .eq("trip_id", selectedTripId)
         .order("date", { ascending: false });
@@ -90,7 +87,7 @@ export default function ExpensesPage() {
           city: item.city,
           currency: item.currency,
           scheduleId: item.schedule_id,
-          scheduleTitle: item.schedules?.title, // 연동된 일정 제목
+          scheduleTitle: item.schedule?.title, // 연동된 일정 제목
         }));
         setExpenses(formattedData);
       }

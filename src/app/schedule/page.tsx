@@ -105,7 +105,10 @@ export default function SchedulePage() {
             setLoading(true);
             const { data, error } = await supabase
                 .from('schedules')
-                .select('*')
+                .select(`
+                    *,
+                    place:places(id, name, category)
+                `)
                 .eq('trip_id', selectedTripId)
                 .order('day_number', { ascending: true })
                 .order('start_time', { ascending: true });
@@ -123,6 +126,12 @@ export default function SchedulePage() {
                     type: item.type as ScheduleType,
                     memo: item.memo,
                     isCompleted: item.is_completed || false,
+                    place_id: item.place_id,
+                    place: item.place ? {
+                        id: item.place.id,
+                        name: item.place.name,
+                        category: item.place.category,
+                    } : null,
                 }));
                 setItems(formattedData);
             }
