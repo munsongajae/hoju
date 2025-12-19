@@ -824,8 +824,8 @@ export default function DiaryPage() {
                                         <div className="flex gap-1">
                                             {(() => {
                                                 const moodList = entry.mood.split(",");
-                                                const displayMoods = moodList.slice(0, 2);
-                                                const remainingCount = moodList.length - 2;
+                                                const displayMoods = moodList.slice(0, 1);
+                                                const remainingCount = moodList.length - 1;
 
                                                 return (
                                                     <>
@@ -1158,8 +1158,8 @@ export default function DiaryPage() {
                                                 type="button"
                                                 onClick={() => toggleMood(mood.value)}
                                                 className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formMoods.includes(mood.value)
-                                                        ? mood.color + " ring-2 ring-offset-1 ring-primary"
-                                                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                                    ? mood.color + " ring-2 ring-offset-1 ring-primary"
+                                                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                                                     }`}
                                             >
                                                 <Icon className="w-4 h-4" />
@@ -1181,8 +1181,8 @@ export default function DiaryPage() {
                                                 type="button"
                                                 onClick={() => setFormWeather(weather.value)}
                                                 className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formWeather === weather.value
-                                                        ? weather.color + " ring-2 ring-offset-1 ring-primary"
-                                                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                                    ? weather.color + " ring-2 ring-offset-1 ring-primary"
+                                                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
                                                     }`}
                                             >
                                                 <Icon className="w-4 h-4" />
