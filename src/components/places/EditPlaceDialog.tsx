@@ -134,11 +134,12 @@ export function EditPlaceDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] !flex !flex-col overflow-hidden">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle>장소 수정</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleUpdate} className="grid gap-4 py-4">
+                <div className="overflow-y-auto flex-1 min-h-0">
+                    <form id="edit-place-form" onSubmit={handleUpdate} className="grid gap-4 py-4">
                     <div className="grid gap-2">
                         <Label htmlFor="edit-name">장소명 *</Label>
                         <Input
@@ -286,23 +287,24 @@ export function EditPlaceDialog({
                         />
                     </div>
 
-                    <DialogFooter className="flex justify-between sm:justify-between gap-2">
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleting}
-                            className="mr-auto"
-                        >
-                            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                            삭제
-                        </Button>
-                        <Button type="submit" disabled={loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            저장하기
-                        </Button>
-                    </DialogFooter>
-                </form>
+                    </form>
+                </div>
+                <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
+                    <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                        className="w-full sm:w-auto mr-auto"
+                    >
+                        {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        삭제
+                    </Button>
+                    <Button type="submit" form="edit-place-form" disabled={loading} className="w-full sm:w-auto">
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        저장하기
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog >
     );

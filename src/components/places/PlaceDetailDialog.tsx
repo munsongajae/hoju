@@ -61,9 +61,8 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
-                <DialogHeader>
-                    {/* ... keep header ... */}
+            <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
+                <DialogHeader className="flex-shrink-0">
                     <div className="flex items-center gap-2 mb-2">
                         <Badge variant="secondary" className={categoryColors[place.category]}>
                             {categoryLabels[place.category]}
@@ -78,7 +77,8 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
                     <DialogTitle className="text-xl">{place.name}</DialogTitle>
                 </DialogHeader>
 
-                <div className="space-y-4 py-2">
+                <div className="overflow-y-auto flex-1 min-h-0">
+                    <div className="space-y-4 py-2">
                     {place.isKidFriendly && (
                         <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-600 bg-green-50 px-3 py-1 rounded-full dark:bg-green-900/20 dark:text-green-400">
                             <Baby className="w-4 h-4" />
@@ -130,9 +130,10 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
                             </Link>
                         </Button>
                     )}
+                    </div>
                 </div>
 
-                <DialogFooter className="flex-col sm:flex-row gap-2 sm:justify-between">
+                <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
                     <Button variant="ghost" onClick={() => onOpenChange(false)} className="w-full sm:w-auto mt-2 sm:mt-0">
                         닫기
                     </Button>

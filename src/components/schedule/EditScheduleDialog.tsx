@@ -230,11 +230,12 @@ export function EditScheduleDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px] max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] !flex !flex-col overflow-hidden">
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle>일정 수정</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleUpdate} className="grid gap-4 py-4 overflow-y-auto flex-1 min-h-0">
+                <div className="overflow-y-auto flex-1 min-h-0">
+                <form onSubmit={handleUpdate} className="grid gap-4 py-4">
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
@@ -420,6 +421,7 @@ export function EditScheduleDialog({
                         </div>
                     </DialogFooter>
                 </form>
+                </div>
             </DialogContent>
         </Dialog>
     );

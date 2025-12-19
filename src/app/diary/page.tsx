@@ -15,7 +15,7 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2, Filter } from "lucide-react";
+import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2, Filter, Image as ImageIcon, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -29,6 +29,7 @@ interface DiaryEntry {
     content: string;
     mood: string;
     highlight: string;
+    image_urls?: string[] | null;
 }
 
 const MOODS = [
@@ -62,6 +63,9 @@ export default function DiaryPage() {
     const [formContent, setFormContent] = useState("");
     const [formMoods, setFormMoods] = useState<string[]>(["normal"]);
     const [formHighlight, setFormHighlight] = useState("");
+    const [formImages, setFormImages] = useState<File[]>([]);
+    const [formImageUrls, setFormImageUrls] = useState<string[]>([]);
+    const [uploadingImages, setUploadingImages] = useState(false);
 
     useEffect(() => {
         if (selectedTrip) {
@@ -99,6 +103,8 @@ export default function DiaryPage() {
         setFormContent("");
         setFormMoods(["normal"]);
         setFormHighlight("");
+        setFormImages([]);
+        setFormImageUrls([]);
         setDialogOpen(true);
     }
 
@@ -109,14 +115,88 @@ export default function DiaryPage() {
         setFormContent(entry.content || "");
         setFormMoods(entry.mood ? entry.mood.split(",") : ["normal"]);
         setFormHighlight(entry.highlight || "");
+        setFormImages([]);
+        setFormImageUrls(entry.image_urls || []);
         setDialogOpen(true);
     }
+
+    // 이미지 업로드
+    const uploadImages = async (files: File[]): Promise<string[]> => {
+        if (files.length === 0) return [];
+
+        setUploadingImages(true);
+        const uploadedUrls: string[] = [];
+
+        try {
+            for (const file of files) {
+                const fileExt = file.name.split('.').pop();
+                const timestamp = Date.now();
+                const randomStr = Math.random().toString(36).substring(7);
+                const fileName = `${selectedTripId}/${timestamp}-${randomStr}.${fileExt}`;
+                const filePath = fileName;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('diary-images')
+                    .upload(filePath, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (uploadError) {
+                    console.error('Error uploading image:', uploadError);
+                    continue;
+                }
+
+                const { data } = supabase.storage
+                    .from('diary-images')
+                    .getPublicUrl(filePath);
+
+                if (data?.publicUrl) {
+                    uploadedUrls.push(data.publicUrl);
+                }
+            }
+        } catch (err) {
+            console.error('Error uploading images:', err);
+        } finally {
+            setUploadingImages(false);
+        }
+
+        return uploadedUrls;
+    };
+
+    // 이미지 삭제
+    const deleteImage = async (imageUrl: string) => {
+        try {
+            // URL에서 파일 경로 추출
+            // Supabase Storage URL 형식: https://[project].supabase.co/storage/v1/object/public/diary-images/[path]
+            const urlParts = imageUrl.split('/diary-images/');
+            if (urlParts.length < 2) return;
+
+            const filePath = urlParts[1].split('?')[0]; // 쿼리 파라미터 제거
+            const { error } = await supabase.storage
+                .from('diary-images')
+                .remove([filePath]);
+
+            if (error) {
+                console.error('Error deleting image:', error);
+            }
+        } catch (err) {
+            console.error('Error deleting image:', err);
+        }
+    };
 
     async function handleSave() {
         if (!selectedTripId || !tripStartDate) return;
 
         setSaving(true);
         try {
+            // 새로 선택한 이미지 업로드
+            const newImageUrls = await uploadImages(formImages);
+            const allImageUrls = [...formImageUrls, ...newImageUrls];
+            
+            // formImages 초기화 (업로드 완료 후)
+            setFormImages([]);
+
             const entryDate = parseISO(formDate);
             const diffDays = differenceInDays(entryDate, tripStartDate);
             const isTripStarted = diffDays >= 0;
@@ -130,6 +210,7 @@ export default function DiaryPage() {
                 content: formContent,
                 mood: formMoods.join(","),
                 highlight: formHighlight,
+                image_urls: allImageUrls.length > 0 ? allImageUrls : null,
                 updated_at: new Date().toISOString(),
             };
 
@@ -153,6 +234,7 @@ export default function DiaryPage() {
             alert(`저장 실패: ${err?.message || JSON.stringify(err) || "알 수 없는 오류"}`);
         } finally {
             setSaving(false);
+            setUploadingImages(false);
         }
     }
 
@@ -164,6 +246,14 @@ export default function DiaryPage() {
 
         setDeleting(true);
         try {
+            // 일기와 함께 이미지도 삭제
+            const entry = entries.find(e => e.id === editingId);
+            if (entry?.image_urls && entry.image_urls.length > 0) {
+                for (const imageUrl of entry.image_urls) {
+                    await deleteImage(imageUrl);
+                }
+            }
+
             const { error } = await supabase
                 .from("diaries")
                 .delete()
@@ -370,6 +460,23 @@ export default function DiaryPage() {
                                             {entry.content}
                                         </p>
                                     )}
+                                    {entry.image_urls && entry.image_urls.length > 0 && (
+                                        <div className="mt-2 grid grid-cols-3 gap-2">
+                                            {entry.image_urls.slice(0, 3).map((url, index) => (
+                                                <img
+                                                    key={index}
+                                                    src={url}
+                                                    alt={`일기 이미지 ${index + 1}`}
+                                                    className="w-full h-20 object-cover rounded-lg"
+                                                />
+                                            ))}
+                                            {entry.image_urls.length > 3 && (
+                                                <div className="w-full h-20 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex items-center justify-center text-xs text-muted-foreground">
+                                                    +{entry.image_urls.length - 3}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                     {entry.highlight && (
                                         <div className="mt-2 flex items-center gap-1 text-xs text-primary">
                                             <Zap className="w-3 h-3" />
@@ -451,6 +558,81 @@ export default function DiaryPage() {
                                 rows={6}
                             />
                         </div>
+
+                        {/* 이미지 업로드 */}
+                        <div className="space-y-2">
+                            <Label>사진 첨부</Label>
+                            <div className="space-y-3">
+                                {/* 기존 이미지 미리보기 */}
+                                {formImageUrls.length > 0 && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {formImageUrls.map((url, index) => (
+                                            <div key={index} className="relative group">
+                                                <img
+                                                    src={url}
+                                                    alt={`첨부 이미지 ${index + 1}`}
+                                                    className="w-full h-24 object-cover rounded-lg border"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setFormImageUrls(prev => prev.filter((_, i) => i !== index));
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* 새 이미지 미리보기 */}
+                                {formImages.length > 0 && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {formImages.map((file, index) => (
+                                            <div key={index} className="relative group">
+                                                <img
+                                                    src={URL.createObjectURL(file)}
+                                                    alt={`새 이미지 ${index + 1}`}
+                                                    className="w-full h-24 object-cover rounded-lg border"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setFormImages(prev => prev.filter((_, i) => i !== index));
+                                                    }}
+                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* 이미지 업로드 버튼 */}
+                                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                                    <span className="text-sm text-muted-foreground">
+                                        {uploadingImages ? "업로드 중..." : "사진 추가"}
+                                    </span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        multiple
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            setFormImages(prev => [...prev, ...files]);
+                                        }}
+                                        disabled={uploadingImages}
+                                    />
+                                </label>
+                            </div>
+                        </div>
                     </div>
 
                     <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -469,9 +651,9 @@ export default function DiaryPage() {
                             <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1 sm:flex-none">
                                 취소
                             </Button>
-                            <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
-                                {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                                저장
+                            <Button onClick={handleSave} disabled={saving || uploadingImages} className="flex-1 sm:flex-none">
+                                {(saving || uploadingImages) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                {uploadingImages ? "업로드 중..." : "저장"}
                             </Button>
                         </div>
                     </DialogFooter>

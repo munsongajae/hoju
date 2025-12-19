@@ -125,14 +125,15 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
             </div>
 
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent>
-                    <DialogHeader>
+                <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
+                    <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-xl">{selectedItem?.title}</DialogTitle>
                         <DialogDescription>일정 상세 정보입니다.</DialogDescription>
                     </DialogHeader>
 
-                    {selectedItem && (
-                        <div className="space-y-4 mt-2">
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                        {selectedItem && (
+                            <div className="space-y-4 mt-2">
                             <div className="flex items-center gap-2 text-sm">
                                 <Clock className="w-4 h-4 text-muted-foreground" />
                                 <span className="font-medium text-muted-foreground">시간:</span>
@@ -177,7 +178,8 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                 />
                             </div>
                         </div>
-                    )}
+                        )}
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

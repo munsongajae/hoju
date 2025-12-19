@@ -110,11 +110,12 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                     <Plus className="w-5 h-5" />
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[425px] max-h-[90vh] !flex !flex-col overflow-hidden">
+                <DialogHeader className="flex-shrink-0">
                     <DialogTitle>새 장소 추가</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+                <div className="overflow-y-auto flex-1 min-h-0">
+                    <form id="add-place-form" onSubmit={handleSubmit} className="grid gap-4 py-4">
                     <div className="grid gap-2">
                         <Label htmlFor="name">장소명 *</Label>
                         <Input
@@ -265,13 +266,14 @@ export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
                         />
                     </div>
 
-                    <DialogFooter>
-                        <Button type="submit" disabled={loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            추가하기
-                        </Button>
-                    </DialogFooter>
-                </form>
+                    </form>
+                </div>
+                <DialogFooter className="flex-shrink-0">
+                    <Button type="submit" form="add-place-form" disabled={loading} className="w-full">
+                        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        추가하기
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog >
     );
