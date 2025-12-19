@@ -7,12 +7,14 @@ import { ScheduleList, ScheduleItemData, ScheduleType } from "@/components/sched
 import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 import { EditScheduleDialog } from "@/components/schedule/EditScheduleDialog";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Search, ArrowUpDown, Clock, MapPin, AlignLeft } from "lucide-react";
+import { Loader2, Search, ArrowUpDown, Clock, MapPin, AlignLeft, Plus } from "lucide-react";
 import { useTrip } from "@/contexts/TripContext";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
+import { ExpenseCategory } from "@/components/expenses/ExpenseList";
 import { cn } from "@/lib/utils";
 import { addDays, isAfter, parse, set } from "date-fns";
 
@@ -28,6 +30,17 @@ const formatTime = (timeStr: string) => {
 };
 
 const CITIES = ["전체", "시드니", "멜버른"];
+
+const mapToExpenseCategory = (type: ScheduleType): ExpenseCategory => {
+    switch (type) {
+        case 'food': return 'food';
+        case 'move': return 'transport';
+        case 'shop': return 'shopping';
+        case 'view':
+        case 'kids': return 'activity';
+        default: return 'etc';
+    }
+};
 
 export default function SchedulePage() {
     const [items, setItems] = useState<ScheduleItemData[]>([]);
@@ -341,27 +354,47 @@ export default function SchedulePage() {
                             </>
                         )}
                     </div>
-                    <div className="flex justify-end gap-2 flex-shrink-0">
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                setDetailDialogOpen(false);
-                                setDetailSchedule(null);
+                    <div className="flex justify-between gap-2 flex-shrink-0 border-t pt-4">
+                        <AddExpenseDialog
+                            trigger={
+                                <Button variant="outline" className="gap-1">
+                                    <Plus className="w-4 h-4" />
+                                    비용 추가
+                                </Button>
+                            }
+                            initialData={{
+                                title: detailSchedule?.title || "",
+                                date: new Date().toISOString().split('T')[0],
+                                category: detailSchedule ? mapToExpenseCategory(detailSchedule.type) : 'etc',
+                                city: detailSchedule?.city || "시드니",
+                                scheduleId: detailSchedule?.id,
                             }}
-                        >
-                            닫기
-                        </Button>
-                        <Button
-                            onClick={() => {
-                                if (detailSchedule) {
-                                    setEditingSchedule(detailSchedule);
-                                    setEditDialogOpen(true);
-                                }
-                                setDetailDialogOpen(false);
+                            onExpenseAdded={() => {
+                                alert('지출이 추가되었습니다.');
                             }}
-                        >
-                            수정하기
-                        </Button>
+                        />
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setDetailDialogOpen(false);
+                                    setDetailSchedule(null);
+                                }}
+                            >
+                                닫기
+                            </Button>
+                            <Button
+                                onClick={() => {
+                                    if (detailSchedule) {
+                                        setEditingSchedule(detailSchedule);
+                                        setEditDialogOpen(true);
+                                    }
+                                    setDetailDialogOpen(false);
+                                }}
+                            >
+                                수정하기
+                            </Button>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
