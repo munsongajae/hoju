@@ -151,8 +151,8 @@ export default function DashboardPage() {
           {selectedTrip && (
             <div className="text-xs text-muted-foreground flex flex-col ml-2">
               <div className="flex items-center gap-1">
-                <span className="text-lg font-bold text-primary">J</span>
-                <span>를 위한</span>
+                    <span className="text-lg font-bold text-primary">파워</span>
+                    <span>J들의</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-lg font-bold text-primary">여</span>
