@@ -689,10 +689,10 @@ export default function DiaryPage() {
                         return (
                             <Card
                                 key={entry.id}
-                                className="overflow-hidden hover:shadow-lg transition-shadow"
+                                className="overflow-hidden hover:shadow-lg transition-shadow gap-0"
                             >
                                 {/* 헤더 (인스타그램 스타일) */}
-                                <CardHeader className="pb-3 pt-4 px-4">
+                                <CardHeader className="pb-1 pt-1 px-4">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="font-bold">
