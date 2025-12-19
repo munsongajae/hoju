@@ -1486,7 +1486,7 @@ export default function TravelInfoPage() {
             } else if (remainingItems && remainingItems.length > 0) {
                 console.log("Reordering indices for", remainingItems.length, "items");
                 // 인덱스 재정렬
-                const updatePromises = remainingItems.map((item) =>
+                const updatePromises = remainingItems.map((item: { id: string; item_index: number }) =>
                     supabase
                         .from("travel_info")
                         .update({ item_index: item.item_index - 1 })
@@ -1628,7 +1628,7 @@ export default function TravelInfoPage() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2 text-sm text-muted-foreground">
-                                                {item.content.map((text, i) => (
+                                                {item.content.map((text: string, i: number) => (
                                                     <p key={i}>• {text}</p>
                                                 ))}
                                             </div>
@@ -1702,7 +1702,7 @@ export default function TravelInfoPage() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2 text-sm text-muted-foreground">
-                                                {item.content.map((text, i) => (
+                                                {item.content.map((text: string, i: number) => (
                                                     <p key={i}>• {text}</p>
                                                 ))}
                                             </div>
@@ -1781,7 +1781,7 @@ export default function TravelInfoPage() {
                                                 </div>
                                             )}
                                             <div className="space-y-2 text-sm text-muted-foreground">
-                                                {item.content.map((text, i) => (
+                                                {item.content.map((text: string, i: number) => (
                                                     <p key={i}>• {text}</p>
                                                 ))}
                                             </div>
@@ -1855,7 +1855,7 @@ export default function TravelInfoPage() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2 text-sm">
-                                                {item.content.map((text, i) => (
+                                                {item.content.map((text: string, i: number) => (
                                                     <p key={i} className="text-muted-foreground">• {text}</p>
                                                 ))}
                                             </div>
@@ -1929,7 +1929,7 @@ export default function TravelInfoPage() {
                                                 </div>
                                             </div>
                                             <div className="space-y-2">
-                                                {item.links.map((link, i) => (
+                                                {item.links.map((link: { name: string; url: string; note?: string }, i: number) => (
                                                     <a
                                                         key={i}
                                                         href={link.url}
@@ -2018,7 +2018,7 @@ export default function TravelInfoPage() {
                         {editingItem?.section === "links" ? (
                             <div className="space-y-4">
                                 <Label>링크 목록</Label>
-                                {editForm.links.map((link, index) => (
+                                {editForm.links.map((link: { name: string; url: string; note?: string }, index: number) => (
                                     <div key={index} className="space-y-2 p-3 border rounded-md">
                                         <div className="flex items-center justify-between">
                                             <span className="text-sm font-medium">링크 {index + 1}</span>
