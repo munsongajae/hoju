@@ -305,6 +305,71 @@ export default function DiaryPage() {
         setEntryImageIndices((prev) => ({ ...prev, [entryId]: index }));
     }
 
+    // 이미지 리사이징 함수
+    async function resizeImage(file: File): Promise<File> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    // 최대 크기 계산 (긴 변 기준 1600px)
+                    const MAX_SIZE = 1600;
+                    let width = img.width;
+                    let height = img.height;
+
+                    // 비율 유지하면서 리사이징
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height = (height * MAX_SIZE) / width;
+                            width = MAX_SIZE;
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width = (width * MAX_SIZE) / height;
+                            height = MAX_SIZE;
+                        }
+                    }
+
+                    // Canvas로 리사이징
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    
+                    if (!ctx) {
+                        reject(new Error('Canvas context를 가져올 수 없습니다.'));
+                        return;
+                    }
+
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // WebP로 변환 (quality: 0.8)
+                    canvas.toBlob(
+                        (blob) => {
+                            if (!blob) {
+                                reject(new Error('이미지 변환에 실패했습니다.'));
+                                return;
+                            }
+                            // 원본 파일명에서 확장자만 webp로 변경
+                            const fileName = file.name.replace(/\.[^/.]+$/, '') + '.webp';
+                            const resizedFile = new File([blob], fileName, {
+                                type: 'image/webp',
+                                lastModified: Date.now(),
+                            });
+                            resolve(resizedFile);
+                        },
+                        'image/webp',
+                        0.8
+                    );
+                };
+                img.onerror = () => reject(new Error('이미지를 로드할 수 없습니다.'));
+                img.src = e.target?.result as string;
+            };
+            reader.onerror = () => reject(new Error('파일을 읽을 수 없습니다.'));
+            reader.readAsDataURL(file);
+        });
+    }
+
     // 이미지 업로드
     const uploadImages = async (files: File[]): Promise<string[]> => {
         if (files.length === 0) return [];
@@ -314,7 +379,18 @@ export default function DiaryPage() {
 
         try {
             for (const file of files) {
-                const fileExt = file.name.split('.').pop();
+                // 이미지 리사이징 (WebP, 1600px max, quality 0.8)
+                let fileToUpload = file;
+                if (file.type.startsWith('image/')) {
+                    try {
+                        fileToUpload = await resizeImage(file);
+                    } catch (resizeError) {
+                        console.error('이미지 리사이징 실패, 원본 파일 사용:', resizeError);
+                        // 리사이징 실패 시 원본 파일 사용
+                    }
+                }
+
+                const fileExt = fileToUpload.name.split('.').pop();
                 const timestamp = Date.now();
                 const randomStr = Math.random().toString(36).substring(7);
                 const fileName = `${selectedTripId}/${timestamp}-${randomStr}.${fileExt}`;
@@ -322,7 +398,7 @@ export default function DiaryPage() {
 
                 const { error: uploadError } = await supabase.storage
                     .from('diary-images')
-                    .upload(filePath, file, {
+                    .upload(filePath, fileToUpload, {
                         cacheControl: '3600',
                         upsert: false
                     });
@@ -648,7 +724,7 @@ export default function DiaryPage() {
                                         images={entry.image_urls}
                                         title={entry.title}
                                         currentIndex={entryImageIndices[entry.id] || 0}
-                                        onNavigate={(direction) => navigateFeedImage(entry.id, direction, entry.image_urls.length)}
+                                        onNavigate={(direction) => navigateFeedImage(entry.id, direction, entry.image_urls?.length || 0)}
                                         onImageClick={() => {
                                             const currentIndex = entryImageIndices[entry.id] || 0;
                                             openImageViewer(entry.image_urls || [], currentIndex);
@@ -658,7 +734,7 @@ export default function DiaryPage() {
                                 )}
 
                                 {/* 콘텐츠 */}
-                                <CardContent className="px-4 pb-4 pt-3">
+                                <CardContent className="px-4 pb-2 pt-2">
                                     <h3 className="font-semibold mb-1 text-lg">{entry.title}</h3>
                                     {entry.content && (
                                         <p 
