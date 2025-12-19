@@ -142,14 +142,18 @@ export default function DashboardPage() {
             priority
           />
           {selectedTrip && (
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              <span>파워</span>
-              <span className="text-lg font-bold text-primary">J</span>
-              <span>를 위한</span>
-              <span className="text-lg font-bold text-primary">여</span>
-              <span>행</span>
-              <span className="text-lg font-bold text-primary">관</span>
-              <span>리 앱</span>
+            <div className="text-xs text-muted-foreground flex flex-col ml-2">
+              <div className="flex items-center gap-1">
+                <span>파워</span>
+                <span className="text-lg font-bold text-primary">J</span>
+                <span>를 위한</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-lg font-bold text-primary">여</span>
+                <span>행</span>
+                <span className="text-lg font-bold text-primary">관</span>
+                <span>리</span>
+              </div>
             </div>
           )}
         </div>
