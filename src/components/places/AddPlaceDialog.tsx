@@ -31,6 +31,7 @@ interface AddPlaceDialogProps {
 }
 
 export function AddPlaceDialog({ onPlaceAdded }: AddPlaceDialogProps) {
+    const { selectedTripId } = useTrip();
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
