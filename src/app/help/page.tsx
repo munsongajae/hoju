@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown } from "lucide-react";
 
 export default function HelpPage() {
     return (
@@ -31,12 +30,12 @@ export default function HelpPage() {
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <Globe className="w-5 h-5" />
-                        FamilyTrip.OS 소개
+                        J여관 소개
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
                     <p>
-                        FamilyTrip.OS는 가족 여행을 체계적으로 관리할 수 있는 올인원 여행 관리 앱입니다.
+                        J여관은 가족 여행을 체계적으로 관리할 수 있는 올인원 여행 관리 앱입니다.
                     </p>
                     <p>
                         일정, 지출, 장소, 일기, 메모를 한 곳에서 관리하고, 여러 여행을 동시에 관리할 수 있습니다.
@@ -57,7 +56,6 @@ export default function HelpPage() {
                                 <Calendar className="w-5 h-5 text-blue-500" />
                                 <span className="font-semibold">일정 관리</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 날짜별로 여행 일정을 추가하고 관리할 수 있습니다</p>
@@ -75,7 +73,6 @@ export default function HelpPage() {
                                 <DollarSign className="w-5 h-5 text-green-500" />
                                 <span className="font-semibold">지출 관리</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 일일 지출을 기록하고 관리할 수 있습니다</p>
@@ -94,7 +91,6 @@ export default function HelpPage() {
                                 <MapPin className="w-5 h-5 text-red-500" />
                                 <span className="font-semibold">장소 관리</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 방문하고 싶은 장소를 미리 저장할 수 있습니다</p>
@@ -112,7 +108,6 @@ export default function HelpPage() {
                                 <BookOpen className="w-5 h-5 text-purple-500" />
                                 <span className="font-semibold">일기 관리</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 여행 중 하루하루를 기록할 수 있습니다</p>
@@ -130,7 +125,6 @@ export default function HelpPage() {
                                 <FileText className="w-5 h-5 text-orange-500" />
                                 <span className="font-semibold">메모 관리</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 여행 중 필요한 정보를 메모로 저장할 수 있습니다</p>
@@ -147,7 +141,6 @@ export default function HelpPage() {
                                 <CheckSquare className="w-5 h-5 text-teal-500" />
                                 <span className="font-semibold">체크리스트</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 여행 준비물과 할 일을 체크리스트로 관리</p>
@@ -163,7 +156,6 @@ export default function HelpPage() {
                                 <Settings className="w-5 h-5 text-zinc-500" />
                                 <span className="font-semibold">설정</span>
                             </div>
-                            <ChevronDown className="w-4 h-4" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="pt-2 px-3 pb-3 space-y-2 text-sm text-muted-foreground">
                             <p>• 여러 여행을 생성하고 관리할 수 있습니다</p>
@@ -271,7 +263,7 @@ export default function HelpPage() {
                     <CardTitle>앱 정보</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
-                    <p>FamilyTrip.OS v1.0</p>
+                    <p>J여관 v1.0</p>
                     <p>여행을 더 체계적으로, 더 즐겁게</p>
                 </CardContent>
             </Card>

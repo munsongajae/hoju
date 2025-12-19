@@ -4,6 +4,17 @@ const CURRENCY_PAIRS: Record<string, string> = {
     'AUD': 'AUDKRW=X',
     'USD': 'USDKRW=X',
     'VND': 'VNDKRW=X',
+    'JPY': 'JPYKRW=X',
+    'EUR': 'EURKRW=X',
+    'CNY': 'CNYKRW=X',
+    'HKD': 'HKDKRW=X',
+    'THB': 'THBKRW=X',
+    'GBP': 'GBPKRW=X',
+    'NZD': 'NZDKRW=X',
+    'CHF': 'CHFKRW=X',
+    'PHP': 'PHPKRW=X',
+    'IDR': 'IDRKRW=X',
+    'MYR': 'MYRKRW=X',
 };
 
 export async function GET(request: NextRequest) {

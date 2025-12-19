@@ -26,7 +26,7 @@ export function TravelInfoSection() {
         <>
             <section className="space-y-3">
                 <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-bold">호주 여행 정보</h2>
+                    <h2 className="text-lg font-bold">여행 정보</h2>
                     <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => openDialog("transport")}>
                         <Info className="w-4 h-4 mr-1" /> 더보기
                     </Button>

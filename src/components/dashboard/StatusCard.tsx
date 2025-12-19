@@ -29,8 +29,8 @@ export function StatusCard({
     const dayNumber = isTripStarted ? diffDays + 1 : Math.abs(diffDays);
 
     return (
-        <Card className="bg-primary text-primary-foreground border-none shadow-lg">
-            <CardContent className="p-6">
+        <Card className="bg-primary text-primary-foreground border-none shadow-lg pt-2 pb-0">
+            <CardContent className="px-6 py-0">
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-primary-foreground/80 text-sm font-medium mb-1">
@@ -59,7 +59,7 @@ export function StatusCard({
                     </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-primary-foreground/20 flex justify-between items-center text-sm">
+                <div className="mt-2 pt-2 border-t border-primary-foreground/20 flex justify-between items-center text-sm">
                     <span>{format(currentDate, "MMMM d (EEEE)")}</span>
                     <span className="bg-white/20 px-2 py-1 rounded text-xs font-semibold">
                         가족 {familyCount}인

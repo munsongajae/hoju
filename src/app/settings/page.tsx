@@ -61,22 +61,55 @@ export default function SettingsPage() {
     const [loadingStats, setLoadingStats] = useState(false);
 
     // 환율 설정
-    type Currency = 'AUD' | 'USD' | 'VND';
+    type Currency = 'AUD' | 'USD' | 'VND' | 'JPY' | 'EUR' | 'CNY' | 'HKD' | 'THB' | 'GBP' | 'NZD' | 'CHF' | 'PHP' | 'IDR' | 'MYR';
     const [selectedCurrency, setSelectedCurrency] = useState<Currency>('AUD');
     const [exchangeRates, setExchangeRates] = useState<Record<Currency, number | null>>({
         AUD: null,
         USD: null,
         VND: null,
+        JPY: null,
+        EUR: null,
+        CNY: null,
+        HKD: null,
+        THB: null,
+        GBP: null,
+        NZD: null,
+        CHF: null,
+        PHP: null,
+        IDR: null,
+        MYR: null,
     });
     const [customExchangeRates, setCustomExchangeRates] = useState<Record<Currency, string>>({
         AUD: "",
         USD: "",
         VND: "",
+        JPY: "",
+        EUR: "",
+        CNY: "",
+        HKD: "",
+        THB: "",
+        GBP: "",
+        NZD: "",
+        CHF: "",
+        PHP: "",
+        IDR: "",
+        MYR: "",
     });
     const [useCustomRates, setUseCustomRates] = useState<Record<Currency, boolean>>({
         AUD: false,
         USD: false,
         VND: false,
+        JPY: false,
+        EUR: false,
+        CNY: false,
+        HKD: false,
+        THB: false,
+        GBP: false,
+        NZD: false,
+        CHF: false,
+        PHP: false,
+        IDR: false,
+        MYR: false,
     });
     const [loadingRate, setLoadingRate] = useState(false);
 
@@ -217,7 +250,8 @@ export default function SettingsPage() {
 
             // 저장된 선택된 통화 가져오기 (초기 로드 시)
             const savedCurrency = localStorage.getItem('selectedCurrency') as Currency | null;
-            if (savedCurrency && ['AUD', 'USD', 'VND'].includes(savedCurrency)) {
+            const validCurrencies: Currency[] = ['AUD', 'USD', 'VND', 'JPY', 'EUR', 'CNY', 'HKD', 'THB', 'GBP', 'NZD', 'CHF', 'PHP', 'IDR', 'MYR'];
+            if (savedCurrency && validCurrencies.includes(savedCurrency)) {
                 setSelectedCurrency(savedCurrency);
                 // 저장된 통화의 환율도 로드
                 try {
@@ -1031,16 +1065,42 @@ export default function SettingsPage() {
                                         }}
                                         className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                                     >
-                                        <option value="AUD">호주 달러 (AUD)</option>
-                                        <option value="USD">미국 달러 (USD)</option>
-                                        <option value="VND">베트남 동 (VND)</option>
+                                        <option value="AUD">🇦🇺 호주 달러 (AUD)</option>
+                                        <option value="USD">🇺🇸 미국 달러 (USD)</option>
+                                        <option value="VND">🇻🇳 베트남 동 (VND)</option>
+                                        <option value="JPY">🇯🇵 일본 엔화 (JPY)</option>
+                                        <option value="EUR">🇪🇺 유로 (EUR)</option>
+                                        <option value="CNY">🇨🇳 중국 위안 (CNY)</option>
+                                        <option value="HKD">🇭🇰 홍콩 달러 (HKD)</option>
+                                        <option value="THB">🇹🇭 태국 바트 (THB)</option>
+                                        <option value="GBP">🇬🇧 영국 파운드 (GBP)</option>
+                                        <option value="NZD">🇳🇿 뉴질랜드 달러 (NZD)</option>
+                                        <option value="CHF">🇨🇭 스위스 프랑 (CHF)</option>
+                                        <option value="PHP">🇵🇭 필리핀 페소 (PHP)</option>
+                                        <option value="IDR">🇮🇩 인도네시아 루피아 (IDR)</option>
+                                        <option value="MYR">🇲🇾 말레이시아 링깃 (MYR)</option>
                                     </select>
                                 </div>
 
                                 {/* 선택된 외화 설정 */}
                                 <div className="space-y-2 p-3 border rounded-lg">
                                     {(() => {
-                                        const currencyNames = { AUD: '호주 달러', USD: '미국 달러', VND: '베트남 동' };
+                                        const currencyNames: Record<Currency, string> = {
+                                            AUD: '호주 달러',
+                                            USD: '미국 달러',
+                                            VND: '베트남 동',
+                                            JPY: '일본 엔화',
+                                            EUR: '유로',
+                                            CNY: '중국 위안',
+                                            HKD: '홍콩 달러',
+                                            THB: '태국 바트',
+                                            GBP: '영국 파운드',
+                                            NZD: '뉴질랜드 달러',
+                                            CHF: '스위스 프랑',
+                                            PHP: '필리핀 페소',
+                                            IDR: '인도네시아 루피아',
+                                            MYR: '말레이시아 링깃',
+                                        };
                                         const currency = selectedCurrency;
                                         const useCustom = useCustomRates[currency];
                                         const exchangeRate = exchangeRates[currency];
@@ -1169,7 +1229,7 @@ export default function SettingsPage() {
 
             {/* 앱 정보 */}
             <div className="text-center text-xs text-muted-foreground space-y-1">
-                <p>FamilyTrip.OS v1.0</p>
+                <p>J여관 v1.0</p>
                 <p>한달 가족여행 전용 운영 시스템</p>
             </div>
             </div>

@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Family Trip OS",
+  title: "J여관",
   description: "One month family trip usage",
 };
 

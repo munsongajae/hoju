@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
 import { TravelInfoSection } from "@/components/dashboard/TravelInfoSection";
 import { MemoSection } from "@/components/dashboard/MemoSection";
+import { ExchangeRateCalculator } from "@/components/dashboard/ExchangeRateCalculator";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -12,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { differenceInDays, parseISO, format } from "date-fns";
 import { useTrip } from "@/contexts/TripContext";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface TripSettings {
   id: string;
@@ -34,6 +37,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState<ScheduleItem[]>([]);
   const [currentDayNumber, setCurrentDayNumber] = useState(1);
+  const [exchangeRateDialogOpen, setExchangeRateDialogOpen] = useState(false);
   const { selectedTrip, selectedTripId, loading: tripLoading } = useTrip();
 
   useEffect(() => {
@@ -94,7 +98,14 @@ export default function DashboardPage() {
     return (
       <div className="p-4 space-y-6">
         <header className="flex items-center justify-between py-2">
-          <h1 className="text-2xl font-black tracking-tighter text-foreground">FamilyTrip<span className="text-primary">.OS</span></h1>
+          <Image
+            src="/logo.png"
+            alt="J여관"
+            width={250}
+            height={125}
+            className="h-24 w-auto"
+            priority
+          />
           <ThemeToggle />
         </header>
 
@@ -121,23 +132,40 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 space-y-6">
-      <header className="flex items-center justify-between py-2">
-        <div className="flex-1">
-          <h1 className="text-2xl font-black tracking-tighter text-foreground">FamilyTrip<span className="text-primary">.OS</span></h1>
+      <header className="flex items-center justify-between py-2 mb-0">
+        <div className="flex-1 flex items-center gap-3">
+          <Image
+            src="/logo.png"
+            alt="J여관"
+            width={250}
+            height={125}
+            className="h-24 w-auto"
+            priority
+          />
           {selectedTrip && (
-            <p className="text-xs text-muted-foreground mt-1">{selectedTrip.title}</p>
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              <span>파워</span>
+              <span className="text-lg font-bold text-primary">J</span>
+              <span>를 위한</span>
+              <span className="text-lg font-bold text-primary">여</span>
+              <span>행</span>
+              <span className="text-lg font-bold text-primary">관</span>
+              <span>리 앱</span>
+            </div>
           )}
         </div>
         <ThemeToggle />
       </header>
 
-      <StatusCard
-        currentDate={new Date()}
-        startDate={startDate}
-        totalDays={totalDays > 0 ? totalDays : 30}
-        currentCity={currentCity}
-        familyCount={familyCount}
-      />
+      <div className="-mt-4">
+        <StatusCard
+          currentDate={new Date()}
+          startDate={startDate}
+          totalDays={totalDays > 0 ? totalDays : 30}
+          currentCity={currentCity}
+          familyCount={familyCount}
+        />
+      </div>
 
       <TodaySchedule items={todaySchedule} dayNumber={currentDayNumber} currentCity={currentCity} />
 
@@ -151,11 +179,30 @@ export default function DashboardPage() {
           <span className="block text-2xl mb-1">📝</span>
           <span className="text-sm font-medium">메모</span>
         </Link>
+        <button
+          onClick={() => setExchangeRateDialogOpen(true)}
+          className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block"
+        >
+          <span className="block text-2xl mb-1">💱</span>
+          <span className="text-sm font-medium">환율계산기</span>
+        </button>
         <Link href="/help" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
           <span className="block text-2xl mb-1">❓</span>
           <span className="text-sm font-medium">도움말</span>
         </Link>
       </div>
+
+      {/* 환율 계산기 모달 */}
+      <Dialog open={exchangeRateDialogOpen} onOpenChange={setExchangeRateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>환율 계산기</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <ExchangeRateCalculator />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <TravelInfoSection />
     </div>

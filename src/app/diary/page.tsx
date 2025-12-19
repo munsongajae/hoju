@@ -15,7 +15,9 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
+import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -671,7 +673,7 @@ export default function DiaryPage() {
 
             {filteredEntries.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">
-                    <Calendar className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                    <CalendarIcon className="w-12 h-12 mx-auto mb-4 opacity-30" />
                     <p>조건에 맞는 일기가 없습니다.</p>
                     <p className="text-sm">
                         {entries.length === 0 
@@ -892,11 +894,32 @@ export default function DiaryPage() {
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
                             <Label>날짜</Label>
-                            <Input
-                                type="date"
-                                value={formDate}
-                                onChange={(e) => setFormDate(e.target.value)}
-                            />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-between text-left font-normal"
+                                    >
+                                        <div className="flex items-center">
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {formDate ? format(parseISO(formDate), "yyyy년 MM월 dd일", { locale: ko }) : "날짜 선택"}
+                                        </div>
+                                        <ChevronDown className="h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={formDate ? parseISO(formDate) : undefined}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                setFormDate(format(date, "yyyy-MM-dd"));
+                                            }
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         <div className="space-y-2">
