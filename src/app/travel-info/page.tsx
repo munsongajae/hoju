@@ -140,9 +140,9 @@ export default function TravelInfoPage() {
                         items: [],
                     };
                 }
-                
+
                 const iconComponent = item.icon ? ICON_MAP[item.icon] || Globe : Globe;
-                
+
                 if (item.section === "links") {
                     sections[item.section].items.push({
                         title: item.title,
@@ -1200,7 +1200,7 @@ export default function TravelInfoPage() {
 
             if (itemsToInsert.length > 0) {
                 console.log(`Attempting to save ${itemsToInsert.length} items to database`);
-                
+
                 // 기존 데이터가 있는지 확인하고 upsert 사용
                 const { data, error } = await supabase
                     .from("travel_info")
@@ -1230,7 +1230,7 @@ export default function TravelInfoPage() {
                     // 에러를 throw하지 않고 조용히 실패 (기본 데이터는 여전히 반환됨)
                     return;
                 }
-                
+
                 console.log(`Successfully saved ${itemsToInsert.length} items to database`);
             }
         } catch (err) {
@@ -1312,10 +1312,10 @@ export default function TravelInfoPage() {
     const handleEdit = (section: string, index: number) => {
         const sectionData = travelInfo[section as keyof typeof travelInfo];
         if (!sectionData || !sectionData.items) return;
-        
+
         const item = sectionData.items[index];
         setEditingItem({ section, index, item });
-        
+
         if (section === "links") {
             setEditForm({
                 title: item.title || "",
@@ -1335,15 +1335,15 @@ export default function TravelInfoPage() {
 
     const handleSave = async () => {
         if (!editingItem) return;
-        
+
         const { section, index } = editingItem;
         const updatedInfo = { ...travelInfo };
         const sectionData = updatedInfo[section as keyof typeof updatedInfo];
-        
+
         if (!sectionData || !sectionData.items) return;
-        
+
         const updatedItems = [...sectionData.items];
-        
+
         // 아이콘 이름 찾기
         let iconName = "Globe";
         if (updatedItems[index] && updatedItems[index].icon) {
@@ -1353,7 +1353,7 @@ export default function TravelInfoPage() {
                 }
             });
         }
-        
+
         if (section === "links") {
             updatedItems[index] = {
                 ...updatedItems[index],
@@ -1368,7 +1368,7 @@ export default function TravelInfoPage() {
                 content: editForm.content,
             };
         }
-        
+
         // 데이터베이스에 저장
         try {
             const { error } = await supabase
@@ -1394,12 +1394,12 @@ export default function TravelInfoPage() {
             alert("저장 중 오류가 발생했습니다.");
             return;
         }
-        
+
         updatedInfo[section as keyof typeof updatedInfo] = {
             ...sectionData,
             items: updatedItems,
         };
-        
+
         setTravelInfo(updatedInfo);
         setEditingItem(null);
         setEditForm({ title: "", date: "", content: [], links: [] });
@@ -1407,7 +1407,7 @@ export default function TravelInfoPage() {
 
     const handleDelete = async (section: string, index: number) => {
         if (!confirm("정말 삭제하시겠습니까?")) return;
-        
+
         const sectionData = travelInfo[section as keyof typeof travelInfo];
         if (!sectionData || !sectionData.items || !sectionData.items[index]) {
             alert("삭제할 항목을 찾을 수 없습니다.");
@@ -1416,7 +1416,7 @@ export default function TravelInfoPage() {
 
         try {
             console.log("Deleting item:", { section, index, country: selectedCountry, city: selectedCity });
-            
+
             // 삭제 전 항목 존재 확인
             const { data: itemToDelete, error: findError } = await supabase
                 .from("travel_info")
@@ -1495,7 +1495,7 @@ export default function TravelInfoPage() {
 
                 const updateResults = await Promise.all(updatePromises);
                 const updateErrors = updateResults.filter((result) => result.error);
-                
+
                 if (updateErrors.length > 0) {
                     console.error("Error updating indices:", updateErrors);
                 } else {
@@ -1508,7 +1508,7 @@ export default function TravelInfoPage() {
             const refreshedInfo = await loadTravelInfoFromDB(selectedCountry, selectedCity);
             setTravelInfo(refreshedInfo);
             console.log("Travel info reloaded successfully");
-            
+
         } catch (err) {
             console.error("Failed to delete travel info:", err);
             alert(`삭제 중 오류가 발생했습니다: ${err instanceof Error ? err.message : String(err)}`);
@@ -1527,63 +1527,60 @@ export default function TravelInfoPage() {
             </header>
 
             {/* 나라/도시 선택 */}
-            <Card>
-                <CardContent className="p-4 space-y-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">나라 선택</label>
-                        <Select value={selectedCountry} onValueChange={(value) => {
-                            setSelectedCountry(value);
-                            const country = COUNTRIES.find((c) => c.code === value);
-                            if (country && country.cities.length > 0) {
-                                setSelectedCity(country.cities[0].code);
-                            }
-                        }}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {COUNTRIES.map((country) => (
-                                    <SelectItem key={country.code} value={country.code}>
-                                        {country.flag} {country.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+            <Card className="h-20 my-6 w-full">
+                <CardContent className="h-full items-center flex px-4">
+                    <div className="flex w-full gap-4 items-center justify-start overflow-x-auto no-scrollbar">
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-medium whitespace-nowrap">도시 선택</span>
+                            <Select value={selectedCity} onValueChange={setSelectedCity}>
+                                <SelectTrigger className="w-[110px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {currentCountry.cities.map((city) => (
+                                        <SelectItem key={city.code} value={city.code}>
+                                            {city.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium">도시 선택</label>
-                        <Select value={selectedCity} onValueChange={setSelectedCity}>
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {currentCountry.cities.map((city) => (
-                                    <SelectItem key={city.code} value={city.code}>
-                                        {city.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <MapPin className="w-4 h-4" />
-                        <span>
-                            {currentCountry.flag} {currentCountry.name} · {currentCity.name}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-sm font-medium whitespace-nowrap">나라 선택</span>
+                            <Select value={selectedCountry} onValueChange={(value) => {
+                                setSelectedCountry(value);
+                                const country = COUNTRIES.find((c) => c.code === value);
+                                if (country && country.cities.length > 0) {
+                                    setSelectedCity(country.cities[0].code);
+                                }
+                            }}>
+                                <SelectTrigger className="w-[130px]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {COUNTRIES.map((country) => (
+                                        <SelectItem key={country.code} value={country.code}>
+                                            {country.flag} {country.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
 
             {/* 로딩 상태 */}
-            {loading && (
-                <Card>
-                    <CardContent className="p-4 text-center text-muted-foreground">
-                        데이터를 불러오는 중...
-                    </CardContent>
-                </Card>
-            )}
+            {
+                loading && (
+                    <Card>
+                        <CardContent className="p-4 text-center text-muted-foreground">
+                            데이터를 불러오는 중...
+                        </CardContent>
+                    </Card>
+                )
+            }
 
             {/* 상세 정보 탭 */}
             <Tabs defaultValue="transport" className="w-full" onValueChange={handleTabChange}>
@@ -2101,6 +2098,6 @@ export default function TravelInfoPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     );
 }

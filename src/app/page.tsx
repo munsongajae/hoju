@@ -1,28 +1,16 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import { StatusCard } from "@/components/dashboard/StatusCard";
 import { TodaySchedule } from "@/components/dashboard/TodaySchedule";
-import { MemoSection } from "@/components/dashboard/MemoSection";
-import { ExchangeRateCalculator } from "@/components/dashboard/ExchangeRateCalculator";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { QuickLinks } from "@/components/dashboard/QuickLinks";
+import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { differenceInDays, parseISO, format } from "date-fns";
 import { useTrip } from "@/contexts/TripContext";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
-interface TripSettings {
-  id: string;
-  title: string;
-  start_date: string;
-  end_date: string;
-  family_count: number;
-  cities: string;
-}
 
 interface ScheduleItem {
   id: string;
@@ -36,7 +24,6 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [todaySchedule, setTodaySchedule] = useState<ScheduleItem[]>([]);
   const [currentDayNumber, setCurrentDayNumber] = useState(1);
-  const [exchangeRateDialogOpen, setExchangeRateDialogOpen] = useState(false);
   const { selectedTrip, selectedTripId, loading: tripLoading } = useTrip();
 
   useEffect(() => {
@@ -62,10 +49,7 @@ export default function DashboardPage() {
       // 오늘 일정 로드 (현재 여행 일차 기준)
       const { data: scheduleData } = await supabase
         .from("schedules")
-        .select(`
-          *,
-          place:places(id, name)
-        `)
+        .select("*")
         .eq("trip_id", selectedTripId)
         .eq("day_number", dayNum > 0 ? dayNum : 1)
         .order("start_time", { ascending: true });
@@ -77,10 +61,6 @@ export default function DashboardPage() {
           title: item.title,
           type: item.type,
           memo: item.memo,
-          place: item.place ? {
-            id: item.place.id,
-            name: item.place.name,
-          } : null,
         }));
         setTodaySchedule(formattedSchedule);
       }
@@ -103,17 +83,7 @@ export default function DashboardPage() {
   if (!selectedTrip) {
     return (
       <div className="p-4 space-y-6">
-        <header className="flex items-center justify-between py-2">
-          <Image
-            src="/logo.png"
-            alt="J여관"
-            width={250}
-            height={125}
-            className="h-24 w-auto"
-            priority
-          />
-          <ThemeToggle />
-        </header>
+        <DashboardHeader />
 
         <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
           <div className="text-6xl mb-4">✈️</div>
@@ -138,86 +108,19 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 space-y-6">
-      <header className="flex items-center justify-between py-2 mb-0">
-        <div className="flex-1 flex items-center gap-3">
-          <Image
-            src="/logo.png"
-            alt="J여관"
-            width={250}
-            height={125}
-            className="h-24 w-auto"
-            priority
-          />
-          {selectedTrip && (
-            <div className="text-xs text-muted-foreground flex flex-col ml-2">
-              <div className="flex items-center gap-1">
-                <span>파워</span>
-                <span className="text-lg font-bold text-primary">J</span>
-                <span>들의</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="text-lg font-bold text-primary">여</span>
-                <span>행</span>
-                <span className="text-lg font-bold text-primary">관</span>
-                <span>리</span>
-              </div>
-            </div>
-          )}
-        </div>
-        <ThemeToggle />
-      </header>
+      <DashboardHeader title={selectedTrip.title} />
 
-      <div className="-mt-4">
-        <StatusCard
-          currentDate={new Date()}
-          startDate={startDate}
-          totalDays={totalDays > 0 ? totalDays : 30}
-          currentCity={currentCity}
-          familyCount={familyCount}
-        />
-      </div>
+      <StatusCard
+        currentDate={new Date()}
+        startDate={startDate}
+        totalDays={totalDays > 0 ? totalDays : 30}
+        currentCity={currentCity}
+        familyCount={familyCount}
+      />
 
       <TodaySchedule items={todaySchedule} dayNumber={currentDayNumber} currentCity={currentCity} />
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-3 mt-6">
-        <Link href="/checklist" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
-          <span className="block text-2xl mb-1">✅</span>
-          <span className="text-sm font-medium">체크리스트</span>
-        </Link>
-        <Link href="/memo" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
-          <span className="block text-2xl mb-1">📝</span>
-          <span className="text-sm font-medium">메모</span>
-        </Link>
-        <button
-          onClick={() => setExchangeRateDialogOpen(true)}
-          className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block"
-        >
-          <span className="block text-2xl mb-1">💱</span>
-          <span className="text-sm font-medium">환율계산기</span>
-        </button>
-        <Link href="/travel-info" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
-          <span className="block text-2xl mb-1">🌍</span>
-          <span className="text-sm font-medium">여행 정보</span>
-        </Link>
-        <Link href="/help" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
-          <span className="block text-2xl mb-1">❓</span>
-          <span className="text-sm font-medium">도움말</span>
-        </Link>
-      </div>
-
-      {/* 환율 계산기 모달 */}
-      <Dialog open={exchangeRateDialogOpen} onOpenChange={setExchangeRateDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>환율 계산기</DialogTitle>
-          </DialogHeader>
-          <div className="mt-4">
-            <ExchangeRateCalculator />
-          </div>
-        </DialogContent>
-      </Dialog>
-
+      <QuickLinks />
     </div>
   );
 }

@@ -2,13 +2,13 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
-    Calendar, 
-    DollarSign, 
-    MapPin, 
-    BookOpen, 
-    Settings, 
-    CheckSquare, 
+import {
+    Calendar,
+    DollarSign,
+    MapPin,
+    BookOpen,
+    Settings,
+    CheckSquare,
     FileText,
     Image,
     Link as LinkIcon,
@@ -35,10 +35,11 @@ export default function HelpPage() {
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
                     <p>
-                        J여관은 가족 여행을 체계적으로 관리할 수 있는 올인원 여행 관리 앱입니다.
+                        J여관은 <strong>철저한 계획을 사랑하는 당신(Power J)</strong>을 위한 완벽한 여행 관리 솔루션입니다.
                     </p>
                     <p>
-                        일정, 지출, 장소, 일기, 메모를 한 곳에서 관리하고, 여러 여행을 동시에 관리할 수 있습니다.
+                        분 단위 일정부터 예산 1원까지, 당신의 완벽한 여행 계획이 흐트러지지 않도록 도와드립니다.
+                        일정, 지출, 장소, 일기, 메모를 한 곳에서 빈틈없이 관리하세요.
                     </p>
                 </CardContent>
             </Card>
