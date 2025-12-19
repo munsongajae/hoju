@@ -15,7 +15,7 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2, Filter, Image as ImageIcon, X } from "lucide-react";
+import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -28,8 +28,129 @@ interface DiaryEntry {
     title: string;
     content: string;
     mood: string;
-    highlight: string;
     image_urls?: string[] | null;
+}
+
+// 피드 이미지 캐러셀 컴포넌트
+function FeedImageCarousel({
+    entryId,
+    images,
+    title,
+    currentIndex,
+    onNavigate,
+    onImageClick,
+    onIndexChange
+}: {
+    entryId: string;
+    images: string[];
+    title: string;
+    currentIndex: number;
+    onNavigate: (direction: "prev" | "next") => void;
+    onImageClick: () => void;
+    onIndexChange?: (index: number) => void;
+}) {
+    const [touchStart, setTouchStart] = useState<number | null>(null);
+    const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+    // 터치 이벤트 핸들러
+    const handleTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > 50;
+        const isRightSwipe = distance < -50;
+
+        if (isLeftSwipe) {
+            onNavigate("next");
+        } else if (isRightSwipe) {
+            onNavigate("prev");
+        }
+    };
+
+    return (
+        <div className="relative w-full aspect-square bg-zinc-100 dark:bg-zinc-900 group">
+            {/* 현재 이미지 */}
+            <div
+                className="relative w-full h-full cursor-pointer overflow-hidden"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onImageClick();
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+            >
+                <img
+                    key={`${entryId}-${currentIndex}`}
+                    src={images[currentIndex]}
+                    alt={title}
+                    className="w-full h-full object-cover transition-opacity duration-300"
+                />
+                {/* 이미지 오버레이 (클릭 유도) */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                    <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+            </div>
+            
+            {/* 여러 이미지일 때 좌우 화살표 버튼 */}
+            {images.length > 1 && (
+                <>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate("prev");
+                        }}
+                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100 z-10"
+                        aria-label="이전 이미지"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNavigate("next");
+                        }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100 z-10"
+                        aria-label="다음 이미지"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                    {/* 이미지 인디케이터 (점) - 클릭 가능 */}
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+                        {images.map((_, index) => (
+                            <button
+                                key={index}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (onIndexChange) {
+                                        onIndexChange(index);
+                                    }
+                                }}
+                                className={`h-1.5 rounded-full transition-all ${
+                                    currentIndex === index
+                                        ? "bg-white w-6"
+                                        : "bg-white/50 w-1.5"
+                                }`}
+                                aria-label={`이미지 ${index + 1}`}
+                            />
+                        ))}
+                    </div>
+                    {/* 이미지 카운터 */}
+                    <div className="absolute top-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded-full z-10">
+                        {currentIndex + 1} / {images.length}
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }
 
 const MOODS = [
@@ -62,10 +183,19 @@ export default function DiaryPage() {
     const [formTitle, setFormTitle] = useState("");
     const [formContent, setFormContent] = useState("");
     const [formMoods, setFormMoods] = useState<string[]>(["normal"]);
-    const [formHighlight, setFormHighlight] = useState("");
     const [formImages, setFormImages] = useState<File[]>([]);
     const [formImageUrls, setFormImageUrls] = useState<string[]>([]);
     const [uploadingImages, setUploadingImages] = useState(false);
+
+    // 상세 보기 및 이미지 뷰어 상태
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedEntry, setSelectedEntry] = useState<DiaryEntry | null>(null);
+    const [imageViewerOpen, setImageViewerOpen] = useState(false);
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
+    
+    // 피드에서 각 일기의 현재 이미지 인덱스 관리
+    const [entryImageIndices, setEntryImageIndices] = useState<Record<string, number>>({});
 
     useEffect(() => {
         if (selectedTrip) {
@@ -73,6 +203,24 @@ export default function DiaryPage() {
             loadData();
         }
     }, [selectedTrip]);
+
+    // 키보드 이벤트 (이미지 뷰어에서 좌우 화살표 키로 이미지 이동)
+    useEffect(() => {
+        if (!imageViewerOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowLeft") {
+                navigateImage("prev");
+            } else if (e.key === "ArrowRight") {
+                navigateImage("next");
+            } else if (e.key === "Escape") {
+                setImageViewerOpen(false);
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [imageViewerOpen, selectedImageUrls.length]);
 
     async function loadData() {
         if (!selectedTripId) return;
@@ -102,10 +250,14 @@ export default function DiaryPage() {
         setFormTitle("");
         setFormContent("");
         setFormMoods(["normal"]);
-        setFormHighlight("");
         setFormImages([]);
         setFormImageUrls([]);
         setDialogOpen(true);
+    }
+
+    function openDetailEntry(entry: DiaryEntry) {
+        setSelectedEntry(entry);
+        setDetailDialogOpen(true);
     }
 
     function openEditEntry(entry: DiaryEntry) {
@@ -114,10 +266,43 @@ export default function DiaryPage() {
         setFormTitle(entry.title || "");
         setFormContent(entry.content || "");
         setFormMoods(entry.mood ? entry.mood.split(",") : ["normal"]);
-        setFormHighlight(entry.highlight || "");
         setFormImages([]);
         setFormImageUrls(entry.image_urls || []);
         setDialogOpen(true);
+        setDetailDialogOpen(false); // 상세 보기 닫기
+    }
+
+    function openImageViewer(urls: string[], startIndex: number = 0) {
+        setSelectedImageUrls(urls);
+        setSelectedImageIndex(startIndex);
+        setImageViewerOpen(true);
+    }
+
+    function navigateImage(direction: "prev" | "next") {
+        if (direction === "prev") {
+            setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : selectedImageUrls.length - 1));
+        } else {
+            setSelectedImageIndex((prev) => (prev < selectedImageUrls.length - 1 ? prev + 1 : 0));
+        }
+    }
+
+    // 피드에서 일기 이미지 넘기기
+    function navigateFeedImage(entryId: string, direction: "prev" | "next", totalImages: number) {
+        setEntryImageIndices((prev) => {
+            const currentIndex = prev[entryId] || 0;
+            let newIndex: number;
+            if (direction === "prev") {
+                newIndex = currentIndex > 0 ? currentIndex - 1 : totalImages - 1;
+            } else {
+                newIndex = currentIndex < totalImages - 1 ? currentIndex + 1 : 0;
+            }
+            return { ...prev, [entryId]: newIndex };
+        });
+    }
+
+    // 인디케이터 클릭으로 직접 이미지 이동
+    function setFeedImageIndex(entryId: string, index: number) {
+        setEntryImageIndices((prev) => ({ ...prev, [entryId]: index }));
     }
 
     // 이미지 업로드
@@ -209,7 +394,6 @@ export default function DiaryPage() {
                 title: formTitle || (isTripStarted ? `Day ${dayNum} 일기` : `D-${dayNum} 준비 일기`),
                 content: formContent,
                 mood: formMoods.join(","),
-                highlight: formHighlight,
                 image_urls: allImageUrls.length > 0 ? allImageUrls : null,
                 updated_at: new Date().toISOString(),
             };
@@ -420,16 +604,19 @@ export default function DiaryPage() {
                     </p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {filteredEntries.map((entry) => {
+                        const hasImages = entry.image_urls && entry.image_urls.length > 0;
+                        const currentImageIndex = entryImageIndices[entry.id] || 0;
+                        const currentImage = hasImages && entry.image_urls ? entry.image_urls[currentImageIndex] : null;
 
                         return (
                             <Card
                                 key={entry.id}
-                                className="cursor-pointer hover:shadow-md transition-shadow"
-                                onClick={() => openEditEntry(entry)}
+                                className="overflow-hidden hover:shadow-lg transition-shadow"
                             >
-                                <CardHeader className="pb-2 pt-4 px-4">
+                                {/* 헤더 (인스타그램 스타일) */}
+                                <CardHeader className="pb-3 pt-4 px-4">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="font-bold">
@@ -453,37 +640,43 @@ export default function DiaryPage() {
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="px-4 pb-4">
-                                    <h3 className="font-semibold mb-1">{entry.title}</h3>
+
+                                {/* 메인 이미지 (인스타그램 스타일) */}
+                                {hasImages && entry.image_urls && entry.image_urls.length > 0 && (
+                                    <FeedImageCarousel
+                                        entryId={entry.id}
+                                        images={entry.image_urls}
+                                        title={entry.title}
+                                        currentIndex={entryImageIndices[entry.id] || 0}
+                                        onNavigate={(direction) => navigateFeedImage(entry.id, direction, entry.image_urls.length)}
+                                        onImageClick={() => {
+                                            const currentIndex = entryImageIndices[entry.id] || 0;
+                                            openImageViewer(entry.image_urls || [], currentIndex);
+                                        }}
+                                        onIndexChange={(index) => setFeedImageIndex(entry.id, index)}
+                                    />
+                                )}
+
+                                {/* 콘텐츠 */}
+                                <CardContent className="px-4 pb-4 pt-3">
+                                    <h3 className="font-semibold mb-1 text-lg">{entry.title}</h3>
                                     {entry.content && (
-                                        <p className="text-sm text-muted-foreground line-clamp-2">
+                                        <p 
+                                            className="text-sm text-muted-foreground line-clamp-3 mb-2"
+                                        >
                                             {entry.content}
                                         </p>
                                     )}
-                                    {entry.image_urls && entry.image_urls.length > 0 && (
-                                        <div className="mt-2 grid grid-cols-3 gap-2">
-                                            {entry.image_urls.slice(0, 3).map((url, index) => (
-                                                <img
-                                                    key={index}
-                                                    src={url}
-                                                    alt={`일기 이미지 ${index + 1}`}
-                                                    className="w-full h-20 object-cover rounded-lg"
-                                                />
-                                            ))}
-                                            {entry.image_urls.length > 3 && (
-                                                <div className="w-full h-20 bg-zinc-100 dark:bg-zinc-800 rounded-lg flex items-center justify-center text-xs text-muted-foreground">
-                                                    +{entry.image_urls.length - 3}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                    {entry.highlight && (
-                                        <div className="mt-2 flex items-center gap-1 text-xs text-primary">
-                                            <Zap className="w-3 h-3" />
-                                            <span className="font-medium">하이라이트:</span>
-                                            <span>{entry.highlight}</span>
-                                        </div>
-                                    )}
+                                    {/* 더보기 버튼 */}
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openDetailEntry(entry);
+                                        }}
+                                        className="mt-2 text-xs text-primary hover:underline"
+                                    >
+                                        더보기...
+                                    </button>
                                 </CardContent>
                             </Card>
                         );
@@ -491,12 +684,134 @@ export default function DiaryPage() {
                 </div>
             )}
 
+            {/* 상세 보기 Dialog (블로그 형식) */}
+            <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+                <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
+                    <DialogHeader className="flex-shrink-0">
+                        <DialogTitle className="text-xl">{selectedEntry?.title}</DialogTitle>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="font-bold">
+                                {selectedEntry && (selectedEntry.day_number > 0 ? `Day ${selectedEntry.day_number}` : `D-${Math.abs(selectedEntry.day_number)}`)}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                                {selectedEntry && format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko })}
+                            </span>
+                        </div>
+                    </DialogHeader>
+                    <div className="overflow-y-auto flex-1 min-h-0">
+                        {selectedEntry && (
+                            <div className="space-y-4 py-4">
+                                {/* 기분 표시 */}
+                                <div className="flex gap-1 flex-wrap">
+                                    {selectedEntry.mood.split(",").map(m => {
+                                        const moodInfo = getMoodInfo(m);
+                                        const MoodIcon = moodInfo.icon;
+                                        return (
+                                            <Badge key={m} className={moodInfo.color + " border-0"}>
+                                                <MoodIcon className="w-3 h-3 mr-1" />
+                                                {moodInfo.label}
+                                            </Badge>
+                                        )
+                                    })}
+                                </div>
+
+                                {/* 이미지 갤러리 */}
+                                {selectedEntry.image_urls && selectedEntry.image_urls.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {selectedEntry.image_urls.map((url, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="relative aspect-square bg-zinc-100 dark:bg-zinc-900 rounded-lg overflow-hidden cursor-pointer group"
+                                                    onClick={() => openImageViewer(selectedEntry.image_urls || [], index)}
+                                                >
+                                                    <img
+                                                        src={url}
+                                                        alt={`일기 이미지 ${index + 1}`}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 일기 내용 */}
+                                <div className="prose prose-sm max-w-none">
+                                    <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                        {selectedEntry.content || <span className="italic text-muted-foreground">내용 없음</span>}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <DialogFooter className="flex-shrink-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setDetailDialogOpen(false);
+                                if (selectedEntry) {
+                                    openEditEntry(selectedEntry);
+                                }
+                            }}
+                            className="w-full"
+                        >
+                            <Edit className="w-4 h-4 mr-2" />
+                            수정하기
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* 이미지 뷰어 (Lightbox) */}
+            <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+                <DialogContent className="max-w-[95vw] max-h-[95vh] !flex !flex-col overflow-hidden p-0">
+                    <DialogHeader className="sr-only">
+                        <DialogTitle>이미지 보기</DialogTitle>
+                    </DialogHeader>
+                    <div className="relative flex-1 flex items-center justify-center bg-black/95">
+                        {selectedImageUrls.length > 0 && (
+                            <>
+                                <img
+                                    src={selectedImageUrls[selectedImageIndex]}
+                                    alt={`이미지 ${selectedImageIndex + 1}`}
+                                    className="max-w-full max-h-full object-contain"
+                                />
+                                {/* 이전/다음 버튼 */}
+                                {selectedImageUrls.length > 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => navigateImage("prev")}
+                                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                                        >
+                                            <ChevronLeft className="w-6 h-6" />
+                                        </button>
+                                        <button
+                                            onClick={() => navigateImage("next")}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+                                        >
+                                            <ChevronRight className="w-6 h-6" />
+                                        </button>
+                                        {/* 이미지 인디케이터 */}
+                                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-white text-xs px-3 py-1 rounded-full">
+                                            {selectedImageIndex + 1} / {selectedImageUrls.length}
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Add/Edit Dialog */}
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
+                    <DialogHeader className="flex-shrink-0">
                         <DialogTitle>{editingId ? "일기 수정" : "새 일기 작성"}</DialogTitle>
                     </DialogHeader>
+                    <div className="overflow-y-auto flex-1 min-h-0">
 
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
@@ -538,15 +853,6 @@ export default function DiaryPage() {
                                     );
                                 })}
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>오늘의 하이라이트 ⭐</Label>
-                            <Input
-                                placeholder="가장 기억에 남는 순간"
-                                value={formHighlight}
-                                onChange={(e) => setFormHighlight(e.target.value)}
-                            />
                         </div>
 
                         <div className="space-y-2">
@@ -634,8 +940,8 @@ export default function DiaryPage() {
                             </div>
                         </div>
                     </div>
-
-                    <DialogFooter className="flex-col sm:flex-row gap-2">
+                    </div>
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
                         {editingId && (
                             <Button
                                 variant="destructive"

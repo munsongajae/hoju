@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ArrowLeft, Save, Plane, Users, MapPin, Loader2, Calendar, BarChart3, Download, Upload, DollarSign, RefreshCw, AlertCircle, CheckCircle2, Plus, Trash2, Check } from "lucide-react";
+import { ArrowLeft, Save, Plane, Users, MapPin, Loader2, Calendar, BarChart3, Download, Upload, DollarSign, RefreshCw, AlertCircle, CheckCircle2, Plus, Trash2, Check, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/hooks/useToast";
@@ -645,11 +645,16 @@ export default function SettingsPage() {
             <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
             <div className="p-4 pb-24 space-y-6">
                 {/* 헤더 */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="icon" asChild>
+                            <Link href="/"><ArrowLeft className="w-5 h-5" /></Link>
+                        </Button>
+                        <h1 className="text-2xl font-bold">설정</h1>
+                    </div>
                     <Button variant="ghost" size="icon" asChild>
-                        <Link href="/"><ArrowLeft className="w-5 h-5" /></Link>
+                        <Link href="/help"><HelpCircle className="w-5 h-5" /></Link>
                     </Button>
-                    <h1 className="text-2xl font-bold">설정</h1>
                 </div>
 
                 {/* 여행 선택 섹션 */}

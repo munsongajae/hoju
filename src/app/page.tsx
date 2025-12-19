@@ -151,6 +151,10 @@ export default function DashboardPage() {
           <span className="block text-2xl mb-1">📝</span>
           <span className="text-sm font-medium">메모</span>
         </Link>
+        <Link href="/help" className="p-4 bg-zinc-100 dark:bg-zinc-900 rounded-lg border border-transparent hover:border-primary/20 transition-colors cursor-pointer text-center block">
+          <span className="block text-2xl mb-1">❓</span>
+          <span className="text-sm font-medium">도움말</span>
+        </Link>
       </div>
 
       <TravelInfoSection />
