@@ -7,11 +7,12 @@ import { ScheduleList, ScheduleItemData, ScheduleType } from "@/components/sched
 import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 import { EditScheduleDialog } from "@/components/schedule/EditScheduleDialog";
 import { supabase } from "@/lib/supabase";
-import { Loader2, Search, ArrowUpDown } from "lucide-react";
+import { Loader2, Search, ArrowUpDown, Clock, MapPin, AlignLeft } from "lucide-react";
 import { useTrip } from "@/contexts/TripContext";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { addDays, isAfter, parse, set } from "date-fns";
 
@@ -42,6 +43,9 @@ export default function SchedulePage() {
     // Edit Dialog State
     const [editingSchedule, setEditingSchedule] = useState<ScheduleItemData | null>(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    // Detail Dialog State
+    const [detailSchedule, setDetailSchedule] = useState<ScheduleItemData | null>(null);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
     useEffect(() => {
         if (selectedTripId) {
@@ -289,13 +293,78 @@ export default function SchedulePage() {
                         items={filteredItems}
                         tripStartDate={tripStartDate}
                         onItemClick={(item) => {
-                            setEditingSchedule(item);
-                            setEditDialogOpen(true);
+                            setDetailSchedule(item);
+                            setDetailDialogOpen(true);
                         }}
                         onToggleComplete={handleToggleComplete}
                     />
                 )}
             </div>
+
+            <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+                <DialogContent className="sm:max-w-[480px] max-h-[90vh] !flex !flex-col overflow-hidden">
+                    <DialogHeader className="flex-shrink-0">
+                        <DialogTitle className="text-xl">{detailSchedule?.title}</DialogTitle>
+                        <DialogDescription>일정 상세 정보입니다.</DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
+                        {detailSchedule && (
+                            <>
+                                <div className="flex items-center gap-2 text-sm">
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">시간:</span>
+                                    <span>{detailSchedule.time}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm">
+                                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">도시:</span>
+                                    <span>{detailSchedule.city}</span>
+                                </div>
+                                {detailSchedule.place && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                                        <span className="font-medium text-muted-foreground">장소:</span>
+                                        <span>{detailSchedule.place.name}</span>
+                                    </div>
+                                )}
+                                {detailSchedule.memo && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <AlignLeft className="w-4 h-4 text-muted-foreground" />
+                                            <span className="font-medium text-muted-foreground">메모:</span>
+                                        </div>
+                                        <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
+                                            {detailSchedule.memo}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                    <div className="flex justify-end gap-2 flex-shrink-0">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setDetailDialogOpen(false);
+                                setDetailSchedule(null);
+                            }}
+                        >
+                            닫기
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (detailSchedule) {
+                                    setEditingSchedule(detailSchedule);
+                                    setEditDialogOpen(true);
+                                }
+                                setDetailDialogOpen(false);
+                            }}
+                        >
+                            수정하기
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <EditScheduleDialog
                 schedule={editingSchedule}
