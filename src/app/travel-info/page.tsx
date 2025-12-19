@@ -1527,27 +1527,11 @@ export default function TravelInfoPage() {
             </header>
 
             {/* 나라/도시 선택 */}
-            <Card className="h-20 my-6 w-full">
-                <CardContent className="h-full items-center flex px-4">
-                    <div className="flex w-full gap-4 items-center justify-start overflow-x-auto no-scrollbar">
-                        <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-medium whitespace-nowrap">도시 선택</span>
-                            <Select value={selectedCity} onValueChange={setSelectedCity}>
-                                <SelectTrigger className="w-[110px]">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {currentCountry.cities.map((city) => (
-                                        <SelectItem key={city.code} value={city.code}>
-                                            {city.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-sm font-medium whitespace-nowrap">나라 선택</span>
+            <Card className="my-4 w-full">
+                <CardContent className="p-3">
+                    <div className="flex flex-col gap-2 w-full">
+                        <div className="flex items-center justify-between w-full">
+                            <span className="text-sm font-medium whitespace-nowrap min-w-[60px]">나라 선택</span>
                             <Select value={selectedCountry} onValueChange={(value) => {
                                 setSelectedCountry(value);
                                 const country = COUNTRIES.find((c) => c.code === value);
@@ -1555,13 +1539,29 @@ export default function TravelInfoPage() {
                                     setSelectedCity(country.cities[0].code);
                                 }
                             }}>
-                                <SelectTrigger className="w-[130px]">
+                                <SelectTrigger className="flex-1 ml-2">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {COUNTRIES.map((country) => (
                                         <SelectItem key={country.code} value={country.code}>
                                             {country.flag} {country.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between w-full">
+                            <span className="text-sm font-medium whitespace-nowrap min-w-[60px]">도시 선택</span>
+                            <Select value={selectedCity} onValueChange={setSelectedCity}>
+                                <SelectTrigger className="flex-1 ml-2">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {currentCountry.cities.map((city) => (
+                                        <SelectItem key={city.code} value={city.code}>
+                                            {city.name}
                                         </SelectItem>
                                     ))}
                                 </SelectContent>

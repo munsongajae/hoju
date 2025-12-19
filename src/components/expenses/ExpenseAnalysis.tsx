@@ -59,7 +59,7 @@ export function ExpenseAnalysis({ expenses }: ExpenseAnalysisProps) {
         <CardTitle className="text-base">최근 7일 지출 추이 (AUD 기준)</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-40 flex items-end gap-2">
+        <div className="h-40 flex gap-2">
           {withTotals.map((d) => {
             const ratio = d.total / maxTotal;
             const height = Math.max(8, ratio * 100); // 최소 높이 8%

@@ -270,212 +270,213 @@ export function EditScheduleDialog({
                     <DialogTitle>일정 수정</DialogTitle>
                 </DialogHeader>
                 <div className="overflow-y-auto flex-1 min-h-0">
-                <form onSubmit={handleUpdate} className="grid gap-4 py-4">
+                    <form onSubmit={handleUpdate} className="grid gap-4 py-4">
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label>날짜 선택</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !selectedDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {selectedDate ? (
-                                            format(selectedDate, "yy.MM.dd (EEE)", { locale: ko })
-                                        ) : (
-                                            <span>날짜 선택</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={selectedDate}
-                                        onSelect={handleDateSelect}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label>날짜 선택</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !selectedDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {selectedDate ? (
+                                                format(selectedDate, "yy.MM.dd (EEE)", { locale: ko })
+                                            ) : (
+                                                <span>날짜 선택</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={selectedDate}
+                                            onSelect={handleDateSelect}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-day">Day</Label>
+                                <Input
+                                    id="edit-day"
+                                    type="number"
+                                    min="1"
+                                    value={day}
+                                    onChange={(e) => handleDayChange(e.target.value)}
+                                    required
+                                />
+                            </div>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="edit-day">Day</Label>
-                            <Input
-                                id="edit-day"
-                                type="number"
-                                min="1"
-                                value={day}
-                                onChange={(e) => handleDayChange(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-city">도시</Label>
+                                <Select value={city} onValueChange={(value) => {
+                                    setCity(value);
+                                    setPlaceId("none"); // 도시 변경 시 장소 초기화
+                                }}>
+                                    <SelectTrigger id="edit-city">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="시드니">시드니</SelectItem>
+                                        <SelectItem value="멜버른">멜버른</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="edit-time">시간</Label>
+                                <Input
+                                    id="edit-time"
+                                    type="time"
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                    required
+                                />
+                            </div>
+                        </div>
+
                         <div className="grid gap-2">
-                            <Label htmlFor="edit-city">도시</Label>
-                            <Select value={city} onValueChange={(value) => {
-                                setCity(value);
-                                setPlaceId("none"); // 도시 변경 시 장소 초기화
-                            }}>
-                                <SelectTrigger id="edit-city">
-                                    <SelectValue />
+                            <Label htmlFor="edit-place">장소 연동 (선택)</Label>
+                            <Select value={placeId} onValueChange={setPlaceId}>
+                                <SelectTrigger id="edit-place">
+                                    <SelectValue placeholder="장소를 선택하세요" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="시드니">시드니</SelectItem>
-                                    <SelectItem value="멜버른">멜버른</SelectItem>
+                                    <SelectItem value="none">장소 없음</SelectItem>
+                                    {places.map((place) => (
+                                        <SelectItem key={place.id} value={place.id}>
+                                            {place.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
+
                         <div className="grid gap-2">
-                            <Label htmlFor="edit-time">시간</Label>
+                            <Label htmlFor="edit-title">일정명</Label>
                             <Input
-                                id="edit-time"
-                                type="time"
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
+                                id="edit-title"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="예: 오페라하우스 투어"
                                 required
                             />
                         </div>
-                    </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="edit-place">장소 연동 (선택)</Label>
-                        <Select value={placeId} onValueChange={setPlaceId}>
-                            <SelectTrigger id="edit-place">
-                                <SelectValue placeholder="장소를 선택하세요" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">장소 없음</SelectItem>
-                                {places.map((place) => (
-                                    <SelectItem key={place.id} value={place.id}>
-                                        {place.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="edit-title">일정명</Label>
-                        <Input
-                            id="edit-title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="예: 오페라하우스 투어"
-                            required
-                        />
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="edit-type">유형</Label>
-                        <Select value={type} onValueChange={(v) => setType(v as ScheduleType)}>
-                            <SelectTrigger id="edit-type">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="view">관광 (View)</SelectItem>
-                                <SelectItem value="food">식사 (Food)</SelectItem>
-                                <SelectItem value="move">이동 (Move)</SelectItem>
-                                <SelectItem value="rest">휴식/숙소 (Rest)</SelectItem>
-                                <SelectItem value="shop">쇼핑 (Shop)</SelectItem>
-                                <SelectItem value="kids">아이 (Kids)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="grid gap-2">
-                        <Label htmlFor="edit-memo">메모</Label>
-                        <Textarea
-                            id="edit-memo"
-                            value={memo}
-                            onChange={(e) => setMemo(e.target.value)}
-                            placeholder="세부 내용..."
-                        />
-                    </div>
-
-                    {/* 연동된 지출 목록 */}
-                    {schedule && (
-                        <div className="grid gap-2 border-t pt-4">
-                            <Label className="text-sm font-medium">연동된 지출</Label>
-                            {loadingExpenses ? (
-                                <div className="flex justify-center py-4">
-                                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                                </div>
-                            ) : linkedExpenses.length > 0 ? (
-                                <div className="space-y-2 max-h-40 overflow-y-auto">
-                                    {linkedExpenses.map((expense) => {
-                                        const isKRW = expense.currency === 'KRW';
-                                        return (
-                                            <div
-                                                key={expense.id}
-                                                className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
-                                            >
-                                                <div className="flex-1">
-                                                    <p className="font-medium">{expense.title}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {format(expense.date, "MM/dd")} · {expense.city}
-                                                    </p>
-                                                </div>
-                                                <div className="font-semibold">
-                                                    {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <p className="text-sm text-muted-foreground py-2">
-                                    연동된 지출이 없습니다.
-                                </p>
-                            )}
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-type">유형</Label>
+                            <Select value={type} onValueChange={(v) => setType(v as ScheduleType)}>
+                                <SelectTrigger id="edit-type">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="view">관광 (View)</SelectItem>
+                                    <SelectItem value="food">식사 (Food)</SelectItem>
+                                    <SelectItem value="move">이동 (Move)</SelectItem>
+                                    <SelectItem value="rest">휴식/숙소 (Rest)</SelectItem>
+                                    <SelectItem value="shop">쇼핑 (Shop)</SelectItem>
+                                    <SelectItem value="kids">아이 (Kids)</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
-                    )}
 
-                    <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
-                        <Button
-                            type="button"
-                            variant="destructive"
-                            onClick={handleDelete}
-                            disabled={deleting}
-                            className="w-full sm:w-auto mt-2 sm:mt-0"
-                        >
-                            {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                            삭제
-                        </Button>
-                        <div className="flex gap-2 w-full sm:w-auto">
-                            <AddExpenseDialog
-                                trigger={
-                                    <Button type="button" variant="outline" className="flex-1 sm:flex-none">
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        비용 추가
-                                    </Button>
-                                }
-                                initialData={{
-                                    title,
-                                    date: new Date().toISOString().split('T')[0], // Default to today
-                                    category: mapToExpenseCategory(type),
-                                    city,
-                                    scheduleId: schedule?.id // 일정과 연동
-                                }}
-                                onExpenseAdded={() => {
-                                    if (schedule?.id) {
-                                        fetchLinkedExpenses(schedule.id);
-                                    }
-                                    alert('지출이 추가되었습니다.');
-                                }}
+                        <div className="grid gap-2">
+                            <Label htmlFor="edit-memo">메모</Label>
+                            <Textarea
+                                id="edit-memo"
+                                value={memo}
+                                onChange={(e) => setMemo(e.target.value)}
+                                placeholder="세부 내용..."
+                                className="min-h-[100px] max-h-[200px]"
                             />
-                            <Button type="submit" disabled={loading} className="flex-1 sm:flex-none">
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                저장하기
-                            </Button>
                         </div>
-                    </DialogFooter>
-                </form>
+
+                        {/* 연동된 지출 목록 */}
+                        {schedule && (
+                            <div className="grid gap-2 border-t pt-4">
+                                <Label className="text-sm font-medium">연동된 지출</Label>
+                                {loadingExpenses ? (
+                                    <div className="flex justify-center py-4">
+                                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                    </div>
+                                ) : linkedExpenses.length > 0 ? (
+                                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                                        {linkedExpenses.map((expense) => {
+                                            const isKRW = expense.currency === 'KRW';
+                                            return (
+                                                <div
+                                                    key={expense.id}
+                                                    className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                                                >
+                                                    <div className="flex-1">
+                                                        <p className="font-medium">{expense.title}</p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {format(expense.date, "MM/dd")} · {expense.city}
+                                                        </p>
+                                                    </div>
+                                                    <div className="font-semibold">
+                                                        {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground py-2">
+                                        연동된 지출이 없습니다.
+                                    </p>
+                                )}
+                            </div>
+                        )}
+
+                        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="w-full sm:w-auto mt-2 sm:mt-0"
+                            >
+                                {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                삭제
+                            </Button>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                                <AddExpenseDialog
+                                    trigger={
+                                        <Button type="button" variant="outline" className="flex-1 sm:flex-none">
+                                            <Plus className="mr-2 h-4 w-4" />
+                                            비용 추가
+                                        </Button>
+                                    }
+                                    initialData={{
+                                        title,
+                                        date: new Date().toISOString().split('T')[0], // Default to today
+                                        category: mapToExpenseCategory(type),
+                                        city,
+                                        scheduleId: schedule?.id // 일정과 연동
+                                    }}
+                                    onExpenseAdded={() => {
+                                        if (schedule?.id) {
+                                            fetchLinkedExpenses(schedule.id);
+                                        }
+                                        alert('지출이 추가되었습니다.');
+                                    }}
+                                />
+                                <Button type="submit" disabled={loading} className="flex-1 sm:flex-none">
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    저장하기
+                                </Button>
+                            </div>
+                        </DialogFooter>
+                    </form>
                 </div>
             </DialogContent>
         </Dialog>

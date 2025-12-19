@@ -21,7 +21,8 @@ import {
 import { Loader2, Trash2, Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { ExpenseData, ExpenseCategory } from "./ExpenseList";
+import { ExpenseCategory, ExpenseData } from "./ExpenseList";
+import { useTrip } from "@/contexts/TripContext";
 
 interface EditExpenseDialogProps {
     expense: ExpenseData | null;
@@ -46,6 +47,10 @@ export function EditExpenseDialog({
     const [city, setCity] = useState("시드니");
     const [currency, setCurrency] = useState<'AUD' | 'KRW'>('AUD');
 
+    const { selectedTripId, selectedTrip } = useTrip();
+    const [schedules, setSchedules] = useState<{ id: string; title: string; day_number: number }[]>([]);
+    const [selectedScheduleId, setSelectedScheduleId] = useState<string>("none");
+
     useEffect(() => {
         if (expense) {
             setDate(expense.date.toISOString().split('T')[0]);
@@ -54,8 +59,27 @@ export function EditExpenseDialog({
             setCategory(expense.category);
             setCity(expense.city || "시드니");
             setCurrency(expense.currency || 'AUD');
+            setSelectedScheduleId(expense.scheduleId || "none");
         }
     }, [expense]);
+
+    useEffect(() => {
+        if (open && selectedTripId) {
+            const fetchSchedules = async () => {
+                const { data } = await supabase
+                    .from("schedules")
+                    .select("id, title, day_number")
+                    .eq("trip_id", selectedTripId)
+                    .order("day_number", { ascending: true })
+                    .order("start_time", { ascending: true });
+
+                if (data) {
+                    setSchedules(data);
+                }
+            };
+            fetchSchedules();
+        }
+    }, [open, selectedTripId]);
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -71,7 +95,8 @@ export function EditExpenseDialog({
                     title,
                     category,
                     city,
-                    currency
+                    currency,
+                    schedule_id: selectedScheduleId === "none" ? null : selectedScheduleId
                 })
                 .eq('id', expense.id);
 
@@ -209,23 +234,41 @@ export function EditExpenseDialog({
                         </Select>
                     </div>
 
-                    {/* 연동된 일정 정보 */}
-                    {expense?.scheduleTitle && (
-                        <div className="grid gap-2 border-t pt-4">
-                            <Label className="text-sm font-medium">연동된 일정</Label>
+                    <div className="grid gap-2">
+                        <Label htmlFor="edit-schedule">일정 연동 (선택)</Label>
+                        <Select value={selectedScheduleId} onValueChange={setSelectedScheduleId}>
+                            <SelectTrigger id="edit-schedule">
+                                <SelectValue placeholder="일정을 선택하세요" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">선택 안 함</SelectItem>
+                                {schedules.map((schedule) => {
+                                    let dateStr = "";
+                                    if (selectedTrip?.start_date && schedule.day_number) {
+                                        const date = new Date(selectedTrip.start_date);
+                                        date.setDate(date.getDate() + (schedule.day_number - 1));
+                                        dateStr = date.toISOString().slice(5, 10);
+                                    }
+                                    return (
+                                        <SelectItem key={schedule.id} value={schedule.id}>
+                                            {dateStr ? `[${dateStr}] ` : `[Day ${schedule.day_number}] `}{schedule.title}
+                                        </SelectItem>
+                                    );
+                                })}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* 연동된 일정 정보 (읽기 전용 링크 - 선택된 스케줄이 있을 때만 표시하되, Select와 중복되므로 삭제하거나 '바로가기' 용도로 유지) */}
+                    {expense?.scheduleTitle && selectedScheduleId === expense.scheduleId && (
+                        <div className="grid gap-2 pt-2">
                             <Link
                                 href="/schedule"
-                                className="flex items-center gap-2 p-3 bg-muted rounded-md hover:bg-muted/80 transition-colors"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    onOpenChange(false);
-                                    // 일정 페이지로 이동 (필요시 스크롤/필터링 로직 추가 가능)
-                                    window.location.href = "/schedule";
-                                }}
+                                className="flex items-center gap-2 p-2 px-3 bg-muted/50 rounded-md hover:bg-muted transition-colors text-xs text-muted-foreground"
                             >
-                                <Calendar className="w-4 h-4 text-primary" />
-                                <span className="text-sm font-medium flex-1">{expense.scheduleTitle}</span>
-                                <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                                <Calendar className="w-3 h-3" />
+                                <span className="flex-1 truncate">연동된 일정 페이지로 이동</span>
+                                <ExternalLink className="w-3 h-3" />
                             </Link>
                         </div>
                     )}

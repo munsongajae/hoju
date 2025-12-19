@@ -96,7 +96,7 @@ export function AddScheduleDialog({
                 setTripStartDate(start);
                 // Initialize selectedDate based on current day
                 const currentDay = parseInt(day);
-                if (!isNaN(currentDay) && currentDay > 0) {
+                if (!isNaN(currentDay)) {
                     setSelectedDate(addDays(start, currentDay - 1));
                 }
             }
@@ -140,7 +140,7 @@ export function AddScheduleDialog({
             const diff = differenceInCalendarDays(date, tripStartDate);
             // Day 1 is start date. diff 0 -> Day 1.
             const newDay = diff + 1;
-            if (newDay > 0) setDay(newDay.toString());
+            setDay(newDay.toString());
         }
     };
 
@@ -148,7 +148,7 @@ export function AddScheduleDialog({
     const handleDayChange = (val: string) => {
         setDay(val);
         const dayNum = parseInt(val);
-        if (!isNaN(dayNum) && dayNum > 0 && tripStartDate) {
+        if (!isNaN(dayNum) && tripStartDate) {
             setSelectedDate(addDays(tripStartDate, dayNum - 1));
         }
     };
@@ -206,142 +206,142 @@ export function AddScheduleDialog({
                     <DialogTitle>새 일정 추가</DialogTitle>
                 </DialogHeader>
                 <div className="overflow-y-auto flex-1 min-h-0">
-                <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+                    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label>날짜 선택</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !selectedDate && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {selectedDate ? (
-                                            format(selectedDate, "yy.MM.dd (EEE)", { locale: ko })
-                                        ) : (
-                                            <span>날짜 선택</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={selectedDate}
-                                        onSelect={handleDateSelect}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label>날짜 선택</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !selectedDate && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {selectedDate ? (
+                                                format(selectedDate, "yy.MM.dd (EEE)", { locale: ko })
+                                            ) : (
+                                                <span>날짜 선택</span>
+                                            )}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={selectedDate}
+                                            onSelect={handleDateSelect}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="day">Day</Label>
+                                <Input
+                                    id="day"
+                                    type="number"
+                                    value={day}
+                                    onChange={(e) => handleDayChange(e.target.value)}
+                                    required
+                                />
+                            </div>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="day">Day</Label>
-                            <Input
-                                id="day"
-                                type="number"
-                                min="1"
-                                value={day}
-                                onChange={(e) => handleDayChange(e.target.value)}
-                                required
-                            />
-                        </div>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="city">도시</Label>
+                                <Select value={city} onValueChange={(value) => {
+                                    setCity(value);
+                                    setPlaceId("none"); // 도시 변경 시 장소 초기화
+                                }}>
+                                    <SelectTrigger id="city">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="시드니">시드니</SelectItem>
+                                        <SelectItem value="멜버른">멜버른</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+
                         <div className="grid gap-2">
-                            <Label htmlFor="city">도시</Label>
-                            <Select value={city} onValueChange={(value) => {
-                                setCity(value);
-                                setPlaceId("none"); // 도시 변경 시 장소 초기화
-                            }}>
-                                <SelectTrigger id="city">
-                                    <SelectValue />
+                            <Label htmlFor="place">장소 연동 (선택)</Label>
+                            <Select value={placeId} onValueChange={setPlaceId}>
+                                <SelectTrigger id="place">
+                                    <SelectValue placeholder="장소를 선택하세요" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="시드니">시드니</SelectItem>
-                                    <SelectItem value="멜버른">멜버른</SelectItem>
+                                    <SelectItem value="none">장소 없음</SelectItem>
+                                    {places.map((place) => (
+                                        <SelectItem key={place.id} value={place.id}>
+                                            {place.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
-                    </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="place">장소 연동 (선택)</Label>
-                        <Select value={placeId} onValueChange={setPlaceId}>
-                            <SelectTrigger id="place">
-                                <SelectValue placeholder="장소를 선택하세요" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">장소 없음</SelectItem>
-                                {places.map((place) => (
-                                    <SelectItem key={place.id} value={place.id}>
-                                        {place.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="time">시간</Label>
+                            <Input
+                                id="time"
+                                type="time"
+                                value={startTime}
+                                onChange={(e) => setStartTime(e.target.value)}
+                                required
+                            />
+                        </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="time">시간</Label>
-                        <Input
-                            id="time"
-                            type="time"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                            required
-                        />
-                    </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="title">일정명</Label>
+                            <Input
+                                id="title"
+                                value={title}
+                                onChange={(e) => setTitle(e.target.value)}
+                                placeholder="예: 오페라하우스 투어"
+                                required
+                            />
+                        </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="title">일정명</Label>
-                        <Input
-                            id="title"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            placeholder="예: 오페라하우스 투어"
-                            required
-                        />
-                    </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="type">유형</Label>
+                            <Select value={type} onValueChange={(v) => setType(v as ScheduleType)}>
+                                <SelectTrigger id="type">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="view">관광 (View)</SelectItem>
+                                    <SelectItem value="food">식사 (Food)</SelectItem>
+                                    <SelectItem value="move">이동 (Move)</SelectItem>
+                                    <SelectItem value="rest">휴식/숙소 (Rest)</SelectItem>
+                                    <SelectItem value="shop">쇼핑 (Shop)</SelectItem>
+                                    <SelectItem value="kids">아이 (Kids)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="type">유형</Label>
-                        <Select value={type} onValueChange={(v) => setType(v as ScheduleType)}>
-                            <SelectTrigger id="type">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="view">관광 (View)</SelectItem>
-                                <SelectItem value="food">식사 (Food)</SelectItem>
-                                <SelectItem value="move">이동 (Move)</SelectItem>
-                                <SelectItem value="rest">휴식/숙소 (Rest)</SelectItem>
-                                <SelectItem value="shop">쇼핑 (Shop)</SelectItem>
-                                <SelectItem value="kids">아이 (Kids)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="memo">메모</Label>
+                            <Textarea
+                                id="memo"
+                                value={memo}
+                                onChange={(e) => setMemo(e.target.value)}
+                                placeholder="세부 내용..."
+                                className="min-h-[100px] max-h-[200px]"
+                            />
+                        </div>
 
-                    <div className="grid gap-2">
-                        <Label htmlFor="memo">메모</Label>
-                        <Textarea
-                            id="memo"
-                            value={memo}
-                            onChange={(e) => setMemo(e.target.value)}
-                            placeholder="세부 내용..."
-                        />
-                    </div>
-
-                    <DialogFooter className="flex-shrink-0">
-                        <Button type="submit" disabled={loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            추가하기
-                        </Button>
-                    </DialogFooter>
-                </form>
+                        <DialogFooter className="flex-shrink-0">
+                            <Button type="submit" disabled={loading}>
+                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                추가하기
+                            </Button>
+                        </DialogFooter>
+                    </form>
                 </div>
             </DialogContent>
         </Dialog>

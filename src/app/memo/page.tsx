@@ -189,7 +189,7 @@ export default function MemoPage() {
                         새 메모 추가
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingId ? "메모 수정" : "새 메모"}</DialogTitle>
                     </DialogHeader>
@@ -210,7 +210,7 @@ export default function MemoPage() {
                                 value={formContent}
                                 onChange={(e) => setFormContent(e.target.value)}
                                 placeholder="메모 내용을 입력하세요..."
-                                className="min-h-[200px] resize-none"
+                                className="min-h-[200px] max-h-[400px] overflow-y-auto resize-none"
                             />
                         </div>
                     </div>

@@ -14,7 +14,12 @@ import {
 import { Clock, Tag, AlignLeft, Plus, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
-import { ExpenseCategory } from "@/components/expenses/ExpenseList";
+import { ExpenseCategory, ExpenseData } from "@/components/expenses/ExpenseList";
+import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import { useEffect } from "react";
+import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 interface ScheduleItem {
     id: string;
@@ -67,6 +72,47 @@ const mapToExpenseCategory = (type: string): ExpenseCategory => {
 export function TodaySchedule({ items, dayNumber, currentCity }: TodayScheduleProps) {
     const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+    // 연동된 지출
+    const [linkedExpenses, setLinkedExpenses] = useState<ExpenseData[]>([]);
+    const [loadingExpenses, setLoadingExpenses] = useState(false);
+
+    // 상세 다이얼로그 열릴 때 지출 가져오기
+    useEffect(() => {
+        if (selectedItem && isDialogOpen) {
+            fetchLinkedExpenses(selectedItem.id);
+        } else {
+            setLinkedExpenses([]);
+        }
+    }, [selectedItem, isDialogOpen]);
+
+    const fetchLinkedExpenses = async (scheduleId: string) => {
+        setLoadingExpenses(true);
+        try {
+            const { data, error } = await supabase
+                .from("expenses")
+                .select("*")
+                .eq("schedule_id", scheduleId)
+                .order("date", { ascending: false });
+
+            if (data) {
+                const formattedData: ExpenseData[] = data.map((item: any) => ({
+                    id: item.id,
+                    date: new Date(item.date),
+                    amount: item.amount,
+                    category: item.category as ExpenseCategory,
+                    title: item.title,
+                    city: item.city,
+                    currency: item.currency,
+                }));
+                setLinkedExpenses(formattedData);
+            }
+        } catch (err) {
+            console.error("Failed to fetch linked expenses:", err);
+        } finally {
+            setLoadingExpenses(false);
+        }
+    };
 
     const handleItemClick = (item: ScheduleItem) => {
         setSelectedItem(item);
@@ -143,60 +189,96 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                     <div className="overflow-y-auto flex-1 min-h-0">
                         {selectedItem && (
                             <div className="space-y-4 mt-2">
-                            <div className="flex items-center gap-2 text-sm">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium text-muted-foreground">시간:</span>
-                                <span>{selectedItem.time}</span>
-                            </div>
-
-                            <div className="flex items-center gap-2 text-sm">
-                                <Tag className="w-4 h-4 text-muted-foreground" />
-                                <span className="font-medium text-muted-foreground">유형:</span>
-                                <Badge variant="secondary" className={cn("text-xs font-medium border-0", typeColors[selectedItem.type])}>
-                                    {typeLabels[selectedItem.type] || selectedItem.type.toUpperCase()}
-                                </Badge>
-                            </div>
-
-                            {selectedItem.place && (
                                 <div className="flex items-center gap-2 text-sm">
-                                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">장소:</span>
-                                    <span>{selectedItem.place.name}</span>
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">시간:</span>
+                                    <span>{selectedItem.time}</span>
                                 </div>
-                            )}
 
-                            <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-sm">
-                                    <AlignLeft className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">메모:</span>
+                                    <Tag className="w-4 h-4 text-muted-foreground" />
+                                    <span className="font-medium text-muted-foreground">유형:</span>
+                                    <Badge variant="secondary" className={cn("text-xs font-medium border-0", typeColors[selectedItem.type])}>
+                                        {typeLabels[selectedItem.type] || selectedItem.type.toUpperCase()}
+                                    </Badge>
                                 </div>
-                                <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
-                                    {selectedItem.memo || "메모가 없습니다."}
-                                </div>
-                            </div>
 
-                            <div className="flex justify-end pt-2">
-                                <AddExpenseDialog
-                                    trigger={
-                                        <Button size="sm" variant="outline" className="gap-1">
-                                            <Plus className="w-3.5 h-3.5" />
-                                            비용 추가
-                                        </Button>
-                                    }
-                                    initialData={{
-                                        title: selectedItem.title,
-                                        date: new Date().toISOString().split('T')[0],
-                                        category: mapToExpenseCategory(selectedItem.type),
-                                        city: currentCity,
-                                        // 홈 화면에서도 이 일정과 지출이 연동되도록 scheduleId 설정
-                                        scheduleId: selectedItem.id,
-                                    }}
-                                    onExpenseAdded={() => {
-                                        alert('지출이 추가되었습니다.');
-                                    }}
-                                />
+                                {selectedItem.place && (
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                                        <span className="font-medium text-muted-foreground">장소:</span>
+                                        <span>{selectedItem.place.name}</span>
+                                    </div>
+                                )}
+
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <AlignLeft className="w-4 h-4 text-muted-foreground" />
+                                        <span className="font-medium text-muted-foreground">메모:</span>
+                                    </div>
+                                    <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
+                                        {selectedItem.memo || "메모가 없습니다."}
+                                    </div>
+                                </div>
+
+                                {/* 연동된 지출 목록 */}
+                                <div className="grid gap-2 border-t pt-4">
+                                    <Label className="text-sm font-medium">연동된 지출</Label>
+                                    {loadingExpenses ? (
+                                        <div className="flex justify-center py-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                        </div>
+                                    ) : linkedExpenses.length > 0 ? (
+                                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                                            {linkedExpenses.map((expense) => {
+                                                const isKRW = expense.currency === 'KRW';
+                                                return (
+                                                    <div
+                                                        key={expense.id}
+                                                        className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                                                    >
+                                                        <div className="flex-1">
+                                                            <p className="font-medium">{expense.title}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {expense.category}
+                                                            </p>
+                                                        </div>
+                                                        <div className="font-semibold">
+                                                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground py-1">
+                                            연동된 지출이 없습니다.
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex justify-end pt-2">
+                                    <AddExpenseDialog
+                                        trigger={
+                                            <Button size="sm" variant="outline" className="gap-1">
+                                                <Plus className="w-3.5 h-3.5" />
+                                                비용 추가
+                                            </Button>
+                                        }
+                                        initialData={{
+                                            title: selectedItem.title,
+                                            date: new Date().toISOString().split('T')[0],
+                                            category: mapToExpenseCategory(selectedItem.type),
+                                            city: currentCity,
+                                            // 홈 화면에서도 이 일정과 지출이 연동되도록 scheduleId 설정
+                                            scheduleId: selectedItem.id,
+                                        }}
+                                        onExpenseAdded={() => {
+                                            alert('지출이 추가되었습니다.');
+                                        }}
+                                    />
+                                </div>
                             </div>
-                        </div>
                         )}
                     </div>
                 </DialogContent>

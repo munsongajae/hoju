@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
-import { ExpenseCategory } from "@/components/expenses/ExpenseList";
+import { ExpenseCategory, ExpenseData } from "@/components/expenses/ExpenseList";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { addDays, isAfter, parse, set } from "date-fns";
 
@@ -59,6 +60,47 @@ export default function SchedulePage() {
     // Detail Dialog State
     const [detailSchedule, setDetailSchedule] = useState<ScheduleItemData | null>(null);
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+
+    // 연동된 지출 State
+    const [linkedExpenses, setLinkedExpenses] = useState<ExpenseData[]>([]);
+    const [loadingExpenses, setLoadingExpenses] = useState(false);
+
+    // 상세 모달 열릴 때 지출 가져오기
+    useEffect(() => {
+        if (detailSchedule && detailDialogOpen) {
+            fetchLinkedExpenses(detailSchedule.id);
+        } else {
+            setLinkedExpenses([]);
+        }
+    }, [detailSchedule, detailDialogOpen]);
+
+    const fetchLinkedExpenses = async (scheduleId: string) => {
+        setLoadingExpenses(true);
+        try {
+            const { data, error } = await supabase
+                .from("expenses")
+                .select("*")
+                .eq("schedule_id", scheduleId)
+                .order("date", { ascending: false });
+
+            if (data) {
+                const formattedData: ExpenseData[] = data.map((item: any) => ({
+                    id: item.id,
+                    date: new Date(item.date),
+                    amount: item.amount,
+                    category: item.category as ExpenseCategory,
+                    title: item.title,
+                    city: item.city,
+                    currency: item.currency,
+                }));
+                setLinkedExpenses(formattedData);
+            }
+        } catch (err) {
+            console.error("Failed to fetch linked expenses:", err);
+        } finally {
+            setLoadingExpenses(false);
+        }
+    };
 
     useEffect(() => {
         if (selectedTripId) {
@@ -346,11 +388,47 @@ export default function SchedulePage() {
                                             <AlignLeft className="w-4 h-4 text-muted-foreground" />
                                             <span className="font-medium text-muted-foreground">메모:</span>
                                         </div>
-                                        <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap">
+                                        <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
                                             {detailSchedule.memo}
                                         </div>
                                     </div>
                                 )}
+
+                                {/* 연동된 지출 목록 */}
+                                <div className="grid gap-2 border-t pt-4">
+                                    <Label className="text-sm font-medium">연동된 지출</Label>
+                                    {loadingExpenses ? (
+                                        <div className="flex justify-center py-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                        </div>
+                                    ) : linkedExpenses.length > 0 ? (
+                                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                                            {linkedExpenses.map((expense) => {
+                                                const isKRW = expense.currency === 'KRW';
+                                                return (
+                                                    <div
+                                                        key={expense.id}
+                                                        className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                                                    >
+                                                        <div className="flex-1">
+                                                            <p className="font-medium">{expense.title}</p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {expense.category}
+                                                            </p>
+                                                        </div>
+                                                        <div className="font-semibold">
+                                                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground py-1">
+                                            연동된 지출이 없습니다.
+                                        </p>
+                                    )}
+                                </div>
                             </>
                         )}
                     </div>

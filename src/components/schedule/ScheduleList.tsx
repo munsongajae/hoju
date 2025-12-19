@@ -74,7 +74,12 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
             {sortedDays.map((day) => (
                 <div key={day} className="space-y-4">
                     <h3 className="text-lg font-bold flex items-center gap-2 flex-wrap">
-                        <span className="bg-primary text-primary-foreground px-2 py-1 rounded text-sm">Day {day}</span>
+                        <span className={cn(
+                            "px-2 py-1 rounded text-sm",
+                            day <= 0 ? "bg-zinc-500 text-white" : "bg-primary text-primary-foreground"
+                        )}>
+                            {day <= 0 ? `D-${Math.abs(day - 1)} (준비)` : `Day ${day}`}
+                        </span>
                         {tripStartDate && (
                             <span className="text-primary text-sm font-semibold">
                                 {format(getDateForDay(day)!, "M/d (EEE)", { locale: ko })}

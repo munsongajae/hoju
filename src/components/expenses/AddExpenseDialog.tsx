@@ -48,7 +48,7 @@ export function AddExpenseDialog({
 }: AddExpenseDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const { selectedTripId } = useTrip();
+    const { selectedTripId, selectedTrip } = useTrip();
 
     const isControlled = open !== undefined;
     const finalOpen = isControlled ? open : internalOpen;
@@ -68,17 +68,39 @@ export function AddExpenseDialog({
     const [category, setCategory] = useState<ExpenseCategory>("food");
     const [city, setCity] = useState("시드니");
     const [currency, setCurrency] = useState<'AUD' | 'KRW'>('AUD');
+    const [schedules, setSchedules] = useState<{ id: string; title: string; day_number: number }[]>([]);
+    const [selectedScheduleId, setSelectedScheduleId] = useState<string>("none");
 
     // Initialize with initialData when opening
     useEffect(() => {
-        if (finalOpen && initialData) {
-            if (initialData.date) setDate(initialData.date);
-            if (initialData.title) setTitle(initialData.title);
-            if (initialData.category) setCategory(initialData.category);
-            if (initialData.city) setCity(initialData.city);
-            if (initialData.amount) setAmount(initialData.amount.toString());
+        if (finalOpen) {
+            if (initialData) {
+                if (initialData.date) setDate(initialData.date);
+                if (initialData.title) setTitle(initialData.title);
+                if (initialData.category) setCategory(initialData.category);
+                if (initialData.city) setCity(initialData.city);
+                if (initialData.amount) setAmount(initialData.amount.toString());
+                if (initialData.scheduleId) setSelectedScheduleId(initialData.scheduleId);
+            }
+
+            // Fetch schedules
+            if (selectedTripId) {
+                const fetchSchedules = async () => {
+                    const { data } = await supabase
+                        .from("schedules")
+                        .select("id, title, day_number")
+                        .eq("trip_id", selectedTripId)
+                        .order("day_number", { ascending: true })
+                        .order("start_time", { ascending: true });
+
+                    if (data) {
+                        setSchedules(data);
+                    }
+                };
+                fetchSchedules();
+            }
         }
-    }, [finalOpen, initialData, isControlled]);
+    }, [finalOpen, initialData, isControlled, selectedTripId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -98,12 +120,15 @@ export function AddExpenseDialog({
                 city,
                 currency
             };
-            
+
             // schedule_id가 있으면 추가
-            if (initialData?.scheduleId) {
+            if (selectedScheduleId && selectedScheduleId !== "none") {
+                expenseData.schedule_id = selectedScheduleId;
+            } else if (initialData?.scheduleId) {
+                // initialData가 있고 사용자가 변경하지 않았을 경우 (UI초기화 로직에 따라 위 조건에 걸릴 수도 있지만 안전장치)
                 expenseData.schedule_id = initialData.scheduleId;
             }
-            
+
             const { error } = await supabase.from("expenses").insert([expenseData]);
 
             if (error) throw error;
@@ -161,8 +186,8 @@ export function AddExpenseDialog({
                                     type="button"
                                     onClick={() => setCurrency('AUD')}
                                     className={`flex-1 px-3 py-2 text-sm font-medium border rounded-l-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'AUD'
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-background text-foreground border-input hover:bg-muted'
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-foreground border-input hover:bg-muted'
                                         }`}
                                 >
                                     AUD (A$)
@@ -171,8 +196,8 @@ export function AddExpenseDialog({
                                     type="button"
                                     onClick={() => setCurrency('KRW')}
                                     className={`flex-1 px-3 py-2 text-sm font-medium border-t border-b border-r rounded-r-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'KRW'
-                                            ? 'bg-primary text-primary-foreground border-primary'
-                                            : 'bg-background text-foreground border-input hover:bg-muted'
+                                        ? 'bg-primary text-primary-foreground border-primary'
+                                        : 'bg-background text-foreground border-input hover:bg-muted'
                                         }`}
                                 >
                                     KRW (₩)
@@ -232,6 +257,31 @@ export function AddExpenseDialog({
                             placeholder="예: 점심 식사"
                             required
                         />
+                    </div>
+
+                    <div className="grid gap-2">
+                        <Label htmlFor="schedule">일정 연동 (선택)</Label>
+                        <Select value={selectedScheduleId} onValueChange={setSelectedScheduleId}>
+                            <SelectTrigger id="schedule">
+                                <SelectValue placeholder="일정을 선택하세요" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">선택 안 함</SelectItem>
+                                {schedules.map((schedule) => {
+                                    let dateStr = "";
+                                    if (selectedTrip?.start_date && schedule.day_number) {
+                                        const date = new Date(selectedTrip.start_date);
+                                        date.setDate(date.getDate() + (schedule.day_number - 1));
+                                        dateStr = date.toISOString().slice(5, 10); // MM-DD
+                                    }
+                                    return (
+                                        <SelectItem key={schedule.id} value={schedule.id}>
+                                            {dateStr ? `[${dateStr}] ` : `[Day ${schedule.day_number}] `}{schedule.title}
+                                        </SelectItem>
+                                    );
+                                })}
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <DialogFooter>

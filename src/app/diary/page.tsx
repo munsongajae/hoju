@@ -15,13 +15,16 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown } from "lucide-react";
+import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown, Sun, Cloud, CloudRain, CloudSnow } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase";
 import { format, parseISO, differenceInDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useTrip } from "@/contexts/TripContext";
+import { ScheduleItemData } from "@/components/schedule/ScheduleList";
+import { ExpenseData } from "@/components/expenses/ExpenseList";
+import { DollarSign, MapPin, Receipt, Clock } from "lucide-react";
 
 interface DiaryEntry {
     id: string;
@@ -30,6 +33,7 @@ interface DiaryEntry {
     title: string;
     content: string;
     mood: string;
+    weather?: string;
     image_urls?: string[] | null;
 }
 
@@ -101,7 +105,7 @@ function FeedImageCarousel({
                     <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
             </div>
-            
+
             {/* 여러 이미지일 때 좌우 화살표 버튼 */}
             {images.length > 1 && (
                 <>
@@ -136,11 +140,10 @@ function FeedImageCarousel({
                                         onIndexChange(index);
                                     }
                                 }}
-                                className={`h-1.5 rounded-full transition-all ${
-                                    currentIndex === index
-                                        ? "bg-white w-6"
-                                        : "bg-white/50 w-1.5"
-                                }`}
+                                className={`h-1.5 rounded-full transition-all ${currentIndex === index
+                                    ? "bg-white w-6"
+                                    : "bg-white/50 w-1.5"
+                                    }`}
                                 aria-label={`이미지 ${index + 1}`}
                             />
                         ))}
@@ -164,6 +167,13 @@ const MOODS = [
     { value: "normal", label: "보통", icon: Meh, color: "bg-zinc-100 text-zinc-700" },
 ];
 
+const WEATHERS = [
+    { value: "sunny", label: "맑음", icon: Sun, color: "bg-orange-100 text-orange-600" },
+    { value: "cloudy", label: "흐림", icon: Cloud, color: "bg-gray-100 text-gray-600" },
+    { value: "rainy", label: "비", icon: CloudRain, color: "bg-blue-100 text-blue-600" },
+    { value: "snowy", label: "눈", icon: CloudSnow, color: "bg-cyan-100 text-cyan-600" },
+];
+
 export default function DiaryPage() {
     const [entries, setEntries] = useState<DiaryEntry[]>([]);
     const [loading, setLoading] = useState(true);
@@ -185,6 +195,7 @@ export default function DiaryPage() {
     const [formTitle, setFormTitle] = useState("");
     const [formContent, setFormContent] = useState("");
     const [formMoods, setFormMoods] = useState<string[]>(["normal"]);
+    const [formWeather, setFormWeather] = useState<string>("sunny");
     const [formImages, setFormImages] = useState<File[]>([]);
     const [formImageUrls, setFormImageUrls] = useState<string[]>([]);
     const [uploadingImages, setUploadingImages] = useState(false);
@@ -195,9 +206,19 @@ export default function DiaryPage() {
     const [imageViewerOpen, setImageViewerOpen] = useState(false);
     const [selectedImageIndex, setSelectedImageIndex] = useState(0);
     const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
-    
+
     // 피드에서 각 일기의 현재 이미지 인덱스 관리
     const [entryImageIndices, setEntryImageIndices] = useState<Record<string, number>>({});
+
+    // Related Data State
+    const [schedules, setSchedules] = useState<any[]>([]);
+    const [expenses, setExpenses] = useState<any[]>([]);
+
+    // ... imports need to be handled separately or I can assume they are sufficient if I stick to basic types for now or import them. 
+    // Actually, I should better define types or use 'any' temporarily if types are not exported.
+    // Let's check if I can import types.
+    // ScheduleItemData is in components/schedule/ScheduleList.
+    // ExpenseData is in components/expenses/ExpenseList.
 
     useEffect(() => {
         if (selectedTrip) {
@@ -228,17 +249,66 @@ export default function DiaryPage() {
         if (!selectedTripId) return;
 
         try {
-            // Load diary entries
-            const { data: diaryData, error } = await supabase
-                .from("diaries")
-                .select("*")
-                .order("date", { ascending: false });
+            setLoading(true);
 
-            if (error) {
-                console.error("Error loading diaries:", error);
-            } else if (diaryData) {
-                setEntries(diaryData);
+            // Promise.all for parallel fetching
+            const [diaryResult, scheduleResult, expenseResult] = await Promise.all([
+                supabase
+                    .from("diaries")
+                    .select("*")
+                    .order("date", { ascending: false }),
+                supabase
+                    .from("schedules")
+                    .select("*, place:places(name)")
+                    .eq("trip_id", selectedTripId)
+                    .order("start_time", { ascending: true }),
+                supabase
+                    .from("expenses")
+                    .select("*")
+                    .eq("trip_id", selectedTripId)
+                    .order("date", { ascending: false })
+            ]);
+
+            if (diaryResult.error) console.error("Error loading diaries:", diaryResult.error);
+            if (scheduleResult.error) console.error("Error loading schedules:", scheduleResult.error);
+            if (expenseResult.error) console.error("Error loading expenses:", expenseResult.error);
+
+            if (diaryResult.data) {
+                // Ensure diary date is also string YYYY-MM-DD
+                const formattedDiaries = diaryResult.data.map((d: any) => ({
+                    ...d,
+                    date: typeof d.date === 'string' ? d.date.split('T')[0] : d.date
+                }));
+                setEntries(formattedDiaries);
             }
+            if (scheduleResult.data) {
+                // Transform schedule data to match UI expectations if needed, 
+                // but for now raw data might be enough or simple mapping
+                // Let's map to ScheduleItemData-like structure
+                const formattedSchedules = scheduleResult.data.map((item: any) => ({
+                    id: item.id,
+                    day: item.day_number,
+                    title: item.title,
+                    time: item.start_time?.substring(0, 5) || "",
+                    placeName: item.place?.name,
+                    isCompleted: item.is_completed
+                }));
+                setSchedules(formattedSchedules);
+            }
+            if (expenseResult.data) {
+                const formattedExpenses = expenseResult.data.map((item: any) => ({
+                    id: item.id,
+                    // Fix: Use string split to correctly extract YYYY-MM-DD regardless of time/timezone
+                    date: typeof item.date === 'string' ? item.date.split('T')[0] : "",
+                    title: item.title,
+                    amount: item.amount,
+                    currency: item.currency,
+                    category: item.category
+                }));
+                // console.log("Loaded Expenses:", formattedExpenses.length, formattedExpenses[0]); // Debug log
+                setExpenses(formattedExpenses);
+            }
+
         } catch (err) {
             console.error("Failed to load data:", err);
         } finally {
@@ -251,7 +321,9 @@ export default function DiaryPage() {
         setFormDate(format(new Date(), "yyyy-MM-dd"));
         setFormTitle("");
         setFormContent("");
+        setFormContent("");
         setFormMoods(["normal"]);
+        setFormWeather("sunny");
         setFormImages([]);
         setFormImageUrls([]);
         setDialogOpen(true);
@@ -268,6 +340,7 @@ export default function DiaryPage() {
         setFormTitle(entry.title || "");
         setFormContent(entry.content || "");
         setFormMoods(entry.mood ? entry.mood.split(",") : ["normal"]);
+        setFormWeather(entry.weather || "sunny");
         setFormImages([]);
         setFormImageUrls(entry.image_urls || []);
         setDialogOpen(true);
@@ -337,7 +410,7 @@ export default function DiaryPage() {
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    
+
                     if (!ctx) {
                         reject(new Error('Canvas context를 가져올 수 없습니다.'));
                         return;
@@ -456,22 +529,31 @@ export default function DiaryPage() {
             // 새로 선택한 이미지 업로드
             const newImageUrls = await uploadImages(formImages);
             const allImageUrls = [...formImageUrls, ...newImageUrls];
-            
+
             // formImages 초기화 (업로드 완료 후)
             setFormImages([]);
 
             const entryDate = parseISO(formDate);
             const diffDays = differenceInDays(entryDate, tripStartDate);
-            const isTripStarted = diffDays >= 0;
-            const dayNum = isTripStarted ? diffDays + 1 : Math.abs(diffDays);
+            // Consistent logic: Day 1 = Start Date. Day 0 = 1 day before.
+            const dayNum = diffDays + 1;
+
+            // Title generation logic
+            let defaultTitle = "";
+            if (dayNum > 0) {
+                defaultTitle = `Day ${dayNum} 일기`;
+            } else {
+                defaultTitle = `D-${Math.abs(dayNum - 1)} 준비 일기`;
+            }
 
             const diaryData = {
                 trip_id: selectedTripId,
-                day_number: isTripStarted ? dayNum : -dayNum, // 음수는 D-day 표시용
+                day_number: dayNum,
                 date: formDate,
-                title: formTitle || (isTripStarted ? `Day ${dayNum} 일기` : `D-${dayNum} 준비 일기`),
+                title: formTitle || defaultTitle,
                 content: formContent,
                 mood: formMoods.join(","),
+                weather: formWeather,
                 image_urls: allImageUrls.length > 0 ? allImageUrls : null,
                 updated_at: new Date().toISOString(),
             };
@@ -534,6 +616,7 @@ export default function DiaryPage() {
     }
 
     const getMoodInfo = (mood: string) => MOODS.find(m => m.value === mood) || MOODS[5];
+    const getWeatherInfo = (weather: string) => WEATHERS.find(w => w.value === weather) || WEATHERS[0];
 
     const toggleMood = (moodValue: string) => {
         setFormMoods(prev => {
@@ -548,7 +631,7 @@ export default function DiaryPage() {
     };
 
     const toggleFilterMood = (moodValue: string) => {
-        setSelectedMoods(prev => 
+        setSelectedMoods(prev =>
             prev.includes(moodValue)
                 ? prev.filter(m => m !== moodValue)
                 : [...prev, moodValue]
@@ -559,17 +642,41 @@ export default function DiaryPage() {
     const filteredEntries = useMemo(() => {
         return entries.filter((entry) => {
             // 기분 필터
-            const moodMatch = selectedMoods.length === 0 || 
+            const moodMatch = selectedMoods.length === 0 ||
                 entry.mood.split(",").some(m => selectedMoods.includes(m));
-            
+
             // 날짜 범위 필터
             const entryDate = parseISO(entry.date);
             const startMatch = !dateRangeStart || entryDate >= parseISO(dateRangeStart);
             const endMatch = !dateRangeEnd || entryDate <= parseISO(dateRangeEnd);
-            
+
             return moodMatch && startMatch && endMatch;
         });
     }, [entries, selectedMoods, dateRangeStart, dateRangeEnd]);
+
+    const getDailyData = (dayNumber: number, dateStr: string) => {
+        // Calculate correct day number from date to match Schedule logic (diff + 1)
+        // This ensures matching works even if stored day_number is inconsistent
+        let targetDay = dayNumber;
+        if (tripStartDate) {
+            const entryDate = parseISO(dateStr);
+            // Use local date difference to be safe? Or simple string diff?
+            // differenceInDays is safe if both are parsed correctly.
+            // But we can also rely on the fact that loadData normalizes dates.
+            targetDay = differenceInDays(entryDate, tripStartDate) + 1;
+        }
+
+        const dailySchedules = schedules.filter(s => s.day === targetDay);
+        // Expenses use string date match, so they are already fine
+        const dailyExpenses = expenses.filter(e => e.date === dateStr);
+
+        const totalExpense = dailyExpenses.reduce((sum, e) => {
+            return sum + Number(e.amount);
+        }, 0);
+
+        return { dailySchedules, dailyExpenses, totalExpense };
+    };
+
 
     if (loading) {
         return (
@@ -584,9 +691,9 @@ export default function DiaryPage() {
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">여행 일기</h1>
                 <div className="flex gap-2">
-                    <Button 
-                        variant="outline" 
-                        size="icon" 
+                    <Button
+                        variant="outline"
+                        size="icon"
                         className="h-8 w-8 rounded-full"
                         onClick={() => setShowFilters(!showFilters)}
                     >
@@ -612,11 +719,10 @@ export default function DiaryPage() {
                                         key={mood.value}
                                         type="button"
                                         onClick={() => toggleFilterMood(mood.value)}
-                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${
-                                            isSelected
-                                                ? mood.color + " ring-2 ring-offset-1 ring-primary"
-                                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                                        }`}
+                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${isSelected
+                                            ? mood.color + " ring-2 ring-offset-1 ring-primary"
+                                            : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                            }`}
                                     >
                                         <Icon className="w-4 h-4" />
                                         {mood.label}
@@ -676,8 +782,8 @@ export default function DiaryPage() {
                     <CalendarIcon className="w-12 h-12 mx-auto mb-4 opacity-30" />
                     <p>조건에 맞는 일기가 없습니다.</p>
                     <p className="text-sm">
-                        {entries.length === 0 
-                            ? "오늘의 여행을 기록해보세요!" 
+                        {entries.length === 0
+                            ? "오늘의 여행을 기록해보세요!"
                             : "필터를 조정해보세요."}
                     </p>
                 </div>
@@ -698,23 +804,49 @@ export default function DiaryPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
                                             <Badge variant="secondary" className="font-bold">
-                                                {entry.day_number > 0 ? `Day ${entry.day_number}` : `D-${Math.abs(entry.day_number)}`}
+                                                {entry.day_number > 0
+                                                    ? `Day ${entry.day_number}`
+                                                    : `D-${Math.abs(entry.day_number - 1)}`}
                                             </Badge>
                                             <span className="text-sm text-muted-foreground">
                                                 {format(parseISO(entry.date), "M월 d일 (EEE)", { locale: ko })}
                                             </span>
+                                            {/* 날씨 배지 (카드 헤더) */}
+                                            {entry.weather && (
+                                                <Badge variant="outline" className={`ml-1 border-0 ${getWeatherInfo(entry.weather).color}`}>
+                                                    {(() => {
+                                                        const WIcon = getWeatherInfo(entry.weather).icon;
+                                                        return <WIcon className="w-3.5 h-3.5" />;
+                                                    })()}
+                                                </Badge>
+                                            )}
                                         </div>
                                         <div className="flex gap-1">
-                                            {entry.mood.split(",").map(m => {
-                                                const moodInfo = getMoodInfo(m);
-                                                const MoodIcon = moodInfo.icon;
+                                            {(() => {
+                                                const moodList = entry.mood.split(",");
+                                                const displayMoods = moodList.slice(0, 2);
+                                                const remainingCount = moodList.length - 2;
+
                                                 return (
-                                                    <Badge key={m} className={moodInfo.color + " border-0"}>
-                                                        <MoodIcon className="w-3 h-3 mr-1" />
-                                                        {moodInfo.label}
-                                                    </Badge>
-                                                )
-                                            })}
+                                                    <>
+                                                        {displayMoods.map(m => {
+                                                            const moodInfo = getMoodInfo(m);
+                                                            const MoodIcon = moodInfo.icon;
+                                                            return (
+                                                                <Badge key={m} className={moodInfo.color + " border-0"}>
+                                                                    <MoodIcon className="w-3 h-3 mr-1" />
+                                                                    {moodInfo.label}
+                                                                </Badge>
+                                                            )
+                                                        })}
+                                                        {remainingCount > 0 && (
+                                                            <Badge variant="outline" className="bg-zinc-100 text-zinc-700 border-0">
+                                                                +{remainingCount}
+                                                            </Badge>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -739,7 +871,7 @@ export default function DiaryPage() {
                                 <CardContent className="px-4 pb-2 pt-2">
                                     <h3 className="font-semibold mb-1 text-lg">{entry.title}</h3>
                                     {entry.content && (
-                                        <p 
+                                        <p
                                             className="text-sm text-muted-foreground line-clamp-3 mb-2"
                                         >
                                             {entry.content}
@@ -769,11 +901,27 @@ export default function DiaryPage() {
                         <DialogTitle className="text-xl">{selectedEntry?.title}</DialogTitle>
                         <div className="flex items-center gap-2 mt-2">
                             <Badge variant="secondary" className="font-bold">
-                                {selectedEntry && (selectedEntry.day_number > 0 ? `Day ${selectedEntry.day_number}` : `D-${Math.abs(selectedEntry.day_number)}`)}
+                                {selectedEntry && (selectedEntry.day_number > 0
+                                    ? `Day ${selectedEntry.day_number}`
+                                    : `D-${Math.abs(selectedEntry.day_number - 1)}`)}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
                                 {selectedEntry && format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko })}
                             </span>
+                            {/* 날씨 배지 (상세 모달) */}
+                            {selectedEntry?.weather && (
+                                <Badge variant="outline" className={`ml-2 border-0 bg-transparent ${getWeatherInfo(selectedEntry.weather).color}`}>
+                                    {(() => {
+                                        const WIcon = getWeatherInfo(selectedEntry.weather).icon;
+                                        return (
+                                            <div className="flex items-center gap-1">
+                                                <WIcon className="w-4 h-4" />
+                                                <span>{getWeatherInfo(selectedEntry.weather).label}</span>
+                                            </div>
+                                        );
+                                    })()}
+                                </Badge>
+                            )}
                         </div>
                     </DialogHeader>
                     <div className="overflow-y-auto flex-1 min-h-0">
@@ -821,6 +969,74 @@ export default function DiaryPage() {
                                         {selectedEntry.content || <span className="italic text-muted-foreground">내용 없음</span>}
                                     </p>
                                 </div>
+
+                                {/* Schedules & Expenses Section */}
+                                {(() => {
+                                    if (!selectedEntry) return null;
+                                    const { dailySchedules, dailyExpenses, totalExpense } = getDailyData(selectedEntry.day_number, selectedEntry.date);
+
+                                    if (dailySchedules.length === 0 && dailyExpenses.length === 0) return null;
+
+                                    return (
+                                        <div className="mt-6 pt-6 border-t border-border space-y-6">
+                                            {/* Schedules */}
+                                            {dailySchedules.length > 0 && (
+                                                <div className="space-y-3">
+                                                    <h4 className="font-semibold text-sm flex items-center gap-2 text-muted-foreground">
+                                                        <Clock className="w-4 h-4" />
+                                                        이날의 일정
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {dailySchedules.map((s, i) => (
+                                                            <div key={i} className="flex items-start gap-3 text-sm bg-zinc-50 dark:bg-zinc-900 p-3 rounded-lg">
+                                                                <span className="font-mono text-xs text-muted-foreground mt-0.5">{s.time}</span>
+                                                                <div className="flex-1 space-y-0.5">
+                                                                    <p className={`font-medium ${s.isCompleted ? 'line-through text-muted-foreground' : ''}`}>{s.title}</p>
+                                                                    {s.placeName && (
+                                                                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                            <MapPin className="w-3 h-3" />
+                                                                            {s.placeName}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Expenses */}
+                                            {dailyExpenses.length > 0 && (
+                                                <div className="space-y-3">
+                                                    <h4 className="font-semibold text-sm flex items-center gap-2 text-muted-foreground">
+                                                        <Receipt className="w-4 h-4" />
+                                                        이날의 지출
+                                                    </h4>
+                                                    <div className="space-y-2">
+                                                        {dailyExpenses.map((e, i) => (
+                                                            <div key={i} className="flex items-center justify-between text-sm bg-zinc-50 dark:bg-zinc-900 p-3 rounded-lg">
+                                                                <span className="font-medium">{e.title}</span>
+                                                                <div className="flex items-center gap-1">
+                                                                    <span className="text-muted-foreground text-xs">{e.currency}</span>
+                                                                    <span className="font-mono font-semibold">
+                                                                        {Number(e.amount).toLocaleString()}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        <div className="flex justify-end pt-1 border-t border-dashed">
+                                                            <span className="text-xs font-bold text-muted-foreground mr-2">Total</span>
+                                                            <span className="text-sm font-bold text-primary">
+                                                                {dailyExpenses[0]?.currency} {totalExpense.toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
                             </div>
                         )}
                     </div>
@@ -891,154 +1107,177 @@ export default function DiaryPage() {
                     </DialogHeader>
                     <div className="overflow-y-auto flex-1 min-h-0">
 
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label>날짜</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="w-full justify-between text-left font-normal"
-                                    >
-                                        <div className="flex items-center">
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {formDate ? format(parseISO(formDate), "yyyy년 MM월 dd일", { locale: ko }) : "날짜 선택"}
-                                        </div>
-                                        <ChevronDown className="h-4 w-4 opacity-50" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={formDate ? parseISO(formDate) : undefined}
-                                        onSelect={(date) => {
-                                            if (date) {
-                                                setFormDate(format(date, "yyyy-MM-dd"));
-                                            }
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>제목</Label>
-                            <Input
-                                placeholder="오늘의 제목"
-                                value={formTitle}
-                                onChange={(e) => setFormTitle(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>오늘의 기분</Label>
-                            <div className="flex flex-wrap gap-2">
-                                {MOODS.map(mood => {
-                                    const Icon = mood.icon;
-                                    return (
-                                        <button
-                                            key={mood.value}
-                                            type="button"
-                                            onClick={() => toggleMood(mood.value)}
-                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formMoods.includes(mood.value)
-                                                ? mood.color + " ring-2 ring-offset-1 ring-primary"
-                                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                                                }`}
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>날짜</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-between text-left font-normal"
                                         >
-                                            <Icon className="w-4 h-4" />
-                                            {mood.label}
-                                        </button>
-                                    );
-                                })}
+                                            <div className="flex items-center">
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {formDate ? format(parseISO(formDate), "yyyy년 MM월 dd일", { locale: ko }) : "날짜 선택"}
+                                            </div>
+                                            <ChevronDown className="h-4 w-4 opacity-50" />
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={formDate ? parseISO(formDate) : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    setFormDate(format(date, "yyyy-MM-dd"));
+                                                }
+                                            }}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>제목</Label>
+                                <Input
+                                    placeholder="오늘의 제목"
+                                    value={formTitle}
+                                    onChange={(e) => setFormTitle(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>오늘의 기분</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {MOODS.map(mood => {
+                                        const Icon = mood.icon;
+                                        return (
+                                            <button
+                                                key={mood.value}
+                                                type="button"
+                                                onClick={() => toggleMood(mood.value)}
+                                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formMoods.includes(mood.value)
+                                                        ? mood.color + " ring-2 ring-offset-1 ring-primary"
+                                                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                                    }`}
+                                            >
+                                                <Icon className="w-4 h-4" />
+                                                {mood.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>오늘의 날씨</Label>
+                                <div className="flex flex-wrap gap-2">
+                                    {WEATHERS.map(weather => {
+                                        const Icon = weather.icon;
+                                        return (
+                                            <button
+                                                key={weather.value}
+                                                type="button"
+                                                onClick={() => setFormWeather(weather.value)}
+                                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formWeather === weather.value
+                                                        ? weather.color + " ring-2 ring-offset-1 ring-primary"
+                                                        : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                                                    }`}
+                                            >
+                                                <Icon className="w-4 h-4" />
+                                                {weather.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>일기 내용</Label>
+                                <Textarea
+                                    placeholder="오늘 하루를 자유롭게 기록하세요..."
+                                    value={formContent}
+                                    onChange={(e) => setFormContent(e.target.value)}
+                                    rows={6}
+                                />
+                            </div>
+
+                            {/* 이미지 업로드 */}
+                            <div className="space-y-2">
+                                <Label>사진 첨부</Label>
+                                <div className="space-y-3">
+                                    {/* 기존 이미지 미리보기 */}
+                                    {formImageUrls.length > 0 && (
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {formImageUrls.map((url, index) => (
+                                                <div key={index} className="relative group">
+                                                    <img
+                                                        src={url}
+                                                        alt={`첨부 이미지 ${index + 1}`}
+                                                        className="w-full h-24 object-cover rounded-lg border"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setFormImageUrls(prev => prev.filter((_, i) => i !== index));
+                                                        }}
+                                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* 새 이미지 미리보기 */}
+                                    {formImages.length > 0 && (
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {formImages.map((file, index) => (
+                                                <div key={index} className="relative group">
+                                                    <img
+                                                        src={URL.createObjectURL(file)}
+                                                        alt={`새 이미지 ${index + 1}`}
+                                                        className="w-full h-24 object-cover rounded-lg border"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setFormImages(prev => prev.filter((_, i) => i !== index));
+                                                        }}
+                                                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <X className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* 이미지 업로드 버튼 */}
+                                    <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                                        <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                                        <span className="text-sm text-muted-foreground">
+                                            {uploadingImages ? "업로드 중..." : "사진 추가"}
+                                        </span>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const files = Array.from(e.target.files || []);
+                                                setFormImages(prev => [...prev, ...files]);
+                                            }}
+                                            disabled={uploadingImages}
+                                        />
+                                    </label>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="space-y-2">
-                            <Label>일기 내용</Label>
-                            <Textarea
-                                placeholder="오늘 하루를 자유롭게 기록하세요..."
-                                value={formContent}
-                                onChange={(e) => setFormContent(e.target.value)}
-                                rows={6}
-                            />
-                        </div>
-
-                        {/* 이미지 업로드 */}
-                        <div className="space-y-2">
-                            <Label>사진 첨부</Label>
-                            <div className="space-y-3">
-                                {/* 기존 이미지 미리보기 */}
-                                {formImageUrls.length > 0 && (
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {formImageUrls.map((url, index) => (
-                                            <div key={index} className="relative group">
-                                                <img
-                                                    src={url}
-                                                    alt={`첨부 이미지 ${index + 1}`}
-                                                    className="w-full h-24 object-cover rounded-lg border"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setFormImageUrls(prev => prev.filter((_, i) => i !== index));
-                                                    }}
-                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* 새 이미지 미리보기 */}
-                                {formImages.length > 0 && (
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {formImages.map((file, index) => (
-                                            <div key={index} className="relative group">
-                                                <img
-                                                    src={URL.createObjectURL(file)}
-                                                    alt={`새 이미지 ${index + 1}`}
-                                                    className="w-full h-24 object-cover rounded-lg border"
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setFormImages(prev => prev.filter((_, i) => i !== index));
-                                                    }}
-                                                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    <X className="w-3 h-3" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* 이미지 업로드 버튼 */}
-                                <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
-                                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                                    <span className="text-sm text-muted-foreground">
-                                        {uploadingImages ? "업로드 중..." : "사진 추가"}
-                                    </span>
-                                    <input
-                                        type="file"
-                                        accept="image/*"
-                                        multiple
-                                        className="hidden"
-                                        onChange={(e) => {
-                                            const files = Array.from(e.target.files || []);
-                                            setFormImages(prev => [...prev, ...files]);
-                                        }}
-                                        disabled={uploadingImages}
-                                    />
-                                </label>
-                            </div>
-                        </div>
-                    </div>
                     </div>
                     <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-between flex-shrink-0">
                         {editingId && (
@@ -1067,3 +1306,4 @@ export default function DiaryPage() {
         </div >
     );
 }
+
