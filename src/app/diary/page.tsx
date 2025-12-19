@@ -800,16 +800,16 @@ export default function DiaryPage() {
                                 className="overflow-hidden hover:shadow-lg transition-shadow gap-0"
                             >
                                 {/* 헤더 (인스타그램 스타일) */}
-                                <CardHeader className="pb-1 pt-1 px-4">
+                                <CardHeader className="pb-1 pt-1 px-2 sm:px-4">
                                     <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Badge variant="secondary" className="font-bold">
+                                        <div className="flex items-center gap-1 sm:gap-2">
+                                            <Badge variant="secondary" className="font-bold px-1.5 text-xs sm:text-sm">
                                                 {entry.day_number > 0
                                                     ? `Day ${entry.day_number}`
                                                     : `D-${Math.abs(entry.day_number - 1)}`}
                                             </Badge>
-                                            <span className="text-sm text-muted-foreground">
-                                                {format(parseISO(entry.date), "M월 d일 (EEE)", { locale: ko })}
+                                            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+                                                {format(parseISO(entry.date), "M.d(EEE)", { locale: ko })}
                                             </span>
                                             {/* 날씨 배지 (카드 헤더) */}
                                             {entry.weather && (
