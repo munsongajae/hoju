@@ -194,7 +194,7 @@ export default function SettingsPage() {
                 console.log("이미 로드된 trip, 스킵:", selectedTripId);
                 return;
             }
-            
+
             console.log("selectedTripId 변경됨, 설정 로드:", selectedTripId);
             loadTripSettings(selectedTripId);
             loadStats();
@@ -418,7 +418,7 @@ export default function SettingsPage() {
         console.log("새 여행 추가 버튼 클릭됨");
         // tripId를 null로 설정하여 새 여행 생성 모드로 전환
         setTripId(null);
-        
+
         // 기본값으로 새 여행 생성
         const today = new Date();
         const nextMonth = new Date(today);
@@ -520,7 +520,7 @@ export default function SettingsPage() {
         if (!initialValues.tripTitle && !initialValues.startDate && !initialValues.endDate) {
             return tripTitle.trim() !== "" || startDate !== "" || endDate !== "";
         }
-        
+
         return (
             tripTitle.trim() !== initialValues.tripTitle ||
             startDate !== initialValues.startDate ||
@@ -529,7 +529,7 @@ export default function SettingsPage() {
             cities.trim() !== initialValues.cities
         );
     }, [tripTitle, startDate, endDate, familyCount, cities, initialValues]);
-    
+
     // 저장 가능 여부 (필수 필드가 입력되어 있고 유효한 경우)
     const canSave = useMemo(() => {
         return (
@@ -544,7 +544,7 @@ export default function SettingsPage() {
 
     const handleSave = async () => {
         console.log("handleSave 시작, tripId:", tripId, "tripTitle:", tripTitle, "selectedTripId:", selectedTripId);
-        
+
         // 유효성 검사
         if (!tripTitle.trim()) {
             toast.error("여행 제목을 입력해주세요.");
@@ -576,8 +576,8 @@ export default function SettingsPage() {
                 cities: cities.trim(),
             };
 
-            // tripId가 없으면 selectedTripId를 사용
-            const tripIdToUse = tripId || selectedTripId;
+            // tripId가 없으면 새 여행 생성
+            const tripIdToUse = tripId;
             console.log("사용할 tripId:", tripIdToUse);
 
             if (tripIdToUse) {
@@ -612,12 +612,12 @@ export default function SettingsPage() {
                     console.error("새 여행 생성 에러:", error);
                     throw error;
                 }
-                
+
                 if (newTripData) {
                     const newId = newTripData.id;
                     console.log("새 여행 ID:", newId);
                     setTripId(newId);
-                    
+
                     // 초기값 업데이트
                     setInitialValues({
                         tripTitle: tripTitle.trim(),
@@ -631,12 +631,12 @@ export default function SettingsPage() {
                     console.log("새 여행 생성됨, 목록 새로고침 시작:", newId);
                     await refreshTrips();
                     console.log("목록 새로고침 완료");
-                    
+
                     // 새로 생성된 trip을 선택 (목록 새로고침 후 약간의 지연)
                     setTimeout(() => {
                         setSelectedTripId(newId);
                     }, 200);
-                    
+
                     toast.success("새 여행이 추가되었습니다! ✅");
                     return; // 새 여행 생성 시 여기서 종료
                 } else {
@@ -644,19 +644,19 @@ export default function SettingsPage() {
                 }
             }
 
-                // 초기값 업데이트 (기존 여행 업데이트 시)
-                setInitialValues({
-                    tripTitle: tripTitle.trim(),
-                    startDate,
-                    endDate,
-                    familyCount,
-                    cities: cities.trim(),
-                });
+            // 초기값 업데이트 (기존 여행 업데이트 시)
+            setInitialValues({
+                tripTitle: tripTitle.trim(),
+                startDate,
+                endDate,
+                familyCount,
+                cities: cities.trim(),
+            });
 
-                // trip 목록 새로고침 (업데이트 후)
-                await refreshTrips();
+            // trip 목록 새로고침 (업데이트 후)
+            await refreshTrips();
 
-                toast.success("설정이 저장되었습니다! ✅");
+            toast.success("설정이 저장되었습니다! ✅");
         } catch (err: any) {
             const errorMessage = err?.message || err?.code || "알 수 없는 오류";
             console.error("Failed to save settings:", errorMessage, err);
@@ -838,400 +838,400 @@ export default function SettingsPage() {
                     </Card>
                 )}
 
-            {/* 여행 기본 정보 */}
-            <Collapsible defaultOpen={true}>
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CollapsibleTrigger className="w-full">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <Plane className="w-5 h-5 text-primary" />
-                                여행 정보
-                            </CardTitle>
-                        </CollapsibleTrigger>
-                    </CardHeader>
-                    <CollapsibleContent>
-                        <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="tripTitle">여행 제목</Label>
-                        <Input
-                            id="tripTitle"
-                            value={tripTitle}
-                            onChange={(e) => setTripTitle(e.target.value)}
-                            placeholder="예: 호주 가족여행"
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="startDate">출발일</Label>
-                            <Input
-                                id="startDate"
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className={!dateValidation.isValid && startDate && endDate ? "border-red-500" : ""}
-                            />
-                            {!dateValidation.isValid && startDate && endDate && (
-                                <p className="text-xs text-red-500">{dateValidation.message}</p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="endDate">귀국일</Label>
-                            <Input
-                                id="endDate"
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className={!dateValidation.isValid && startDate && endDate ? "border-red-500" : ""}
-                            />
-                        </div>
-                    </div>
-
-                    {/* 여행 기간 표시 */}
-                    {tripDuration !== null && tripDuration > 0 && (
-                        <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                            <Calendar className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium">
-                                여행 기간: <span className="text-primary">{tripDuration}일</span>
-                            </span>
-                        </div>
-                    )}
-
-                    <Separator />
-
-                    {/* 여행 구성원 */}
-                    <div className="space-y-2">
-                        <Label htmlFor="familyCount" className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-muted-foreground" />
-                            인원 수
-                        </Label>
-                        <Input
-                            id="familyCount"
-                            type="number"
-                            min={1}
-                            max={20}
-                            value={familyCount}
-                            onChange={(e) => setFamilyCount(Number(e.target.value))}
-                        />
-                    </div>
-
-                    <Separator />
-
-                    {/* 방문 도시 */}
-                    <div className="space-y-2">
-                        <Label htmlFor="cities" className="flex items-center gap-2">
-                            <MapPin className="w-4 h-4 text-muted-foreground" />
-                            방문 도시 (쉼표로 구분)
-                        </Label>
-                        <Input
-                            id="cities"
-                            value={cities}
-                            onChange={(e) => setCities(e.target.value)}
-                            placeholder="예: 시드니, 멜버른, 브리즈번"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                            입력한 도시는 일정 필터에서 사용됩니다.
-                        </p>
-                    </div>
-                        </CardContent>
-                    </CollapsibleContent>
-                </Card>
-            </Collapsible>
-
-            {/* 저장 버튼 */}
-            <Card className={hasChanges && canSave ? "border-primary/50 bg-primary/5" : ""}>
-                <CardContent className="pt-6">
-                    <div className="space-y-3">
-                        {hasChanges && canSave && (
-                            <div className="flex items-center gap-2 text-sm text-primary">
-                                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                                <span className="font-medium">변경사항이 있습니다</span>
-                            </div>
-                        )}
-                        {!canSave && (tripTitle.trim() !== "" || startDate !== "" || endDate !== "") && (
-                            <div className="flex items-center gap-2 text-sm text-red-500">
-                                <AlertCircle className="w-4 h-4" />
-                                <span>필수 정보를 모두 입력해주세요</span>
-                            </div>
-                        )}
-                        {!hasChanges && canSave && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <CheckCircle2 className="w-4 h-4" />
-                                <span>모든 변경사항이 저장되었습니다</span>
-                            </div>
-                        )}
-                        <Button 
-                            onClick={() => {
-                                console.log("저장 버튼 클릭됨", { saving, canSave, hasChanges, tripId });
-                                handleSave();
-                            }} 
-                            className="w-full gap-2 h-11" 
-                            disabled={saving || !canSave}
-                            variant={hasChanges && canSave ? "default" : "outline"}
-                        >
-                            {saving ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    저장 중...
-                                </>
-                            ) : canSave ? (
-                                <>
-                                    <Save className="w-4 h-4" />
-                                    {hasChanges ? "변경사항 저장" : "저장"}
-                                </>
-                            ) : (
-                                <>
-                                    <Save className="w-4 h-4" />
-                                    저장
-                                </>
-                            )}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Separator />
-
-            {/* 여행 통계 */}
-            <Collapsible defaultOpen={false}>
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CollapsibleTrigger className="w-full">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <BarChart3 className="w-5 h-5 text-primary" />
-                                여행 통계
-                            </CardTitle>
-                        </CollapsibleTrigger>
-                    </CardHeader>
-                    <CollapsibleContent>
-                        <CardContent>
-                    {loadingStats ? (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="text-center p-3 bg-muted rounded-lg">
-                                <p className="text-2xl font-bold text-primary">{stats.schedules}</p>
-                                <p className="text-xs text-muted-foreground mt-1">일정</p>
-                            </div>
-                            <div className="text-center p-3 bg-muted rounded-lg">
-                                <p className="text-2xl font-bold text-primary">{stats.expenses}</p>
-                                <p className="text-xs text-muted-foreground mt-1">지출</p>
-                            </div>
-                            <div className="text-center p-3 bg-muted rounded-lg">
-                                <p className="text-2xl font-bold text-primary">{stats.places}</p>
-                                <p className="text-xs text-muted-foreground mt-1">장소</p>
-                            </div>
-                        </div>
-                    )}
-                        </CardContent>
-                    </CollapsibleContent>
-                </Card>
-            </Collapsible>
-
-            {/* 환율 설정 */}
-            <Collapsible defaultOpen={false}>
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CollapsibleTrigger className="w-full">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <DollarSign className="w-5 h-5 text-primary" />
-                                환율 설정
-                            </CardTitle>
-                        </CollapsibleTrigger>
-                    </CardHeader>
-                    <CollapsibleContent>
-                        <CardContent className="space-y-4">
-                    {loadingRate ? (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                        </div>
-                    ) : (
-                        <>
-                            <div className="space-y-4">
-                                {/* 외화 선택 */}
+                {/* 여행 기본 정보 */}
+                <Collapsible defaultOpen={true}>
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CollapsibleTrigger className="w-full">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Plane className="w-5 h-5 text-primary" />
+                                    여행 정보
+                                </CardTitle>
+                            </CollapsibleTrigger>
+                        </CardHeader>
+                        <CollapsibleContent>
+                            <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="currencySelect">외화 선택</Label>
-                                    <select
-                                        id="currencySelect"
-                                        value={selectedCurrency}
-                                        onChange={(e) => {
-                                            const newCurrency = e.target.value as Currency;
-                                            setSelectedCurrency(newCurrency);
-                                            localStorage.setItem('selectedCurrency', newCurrency);
-                                            // 선택된 통화 변경 시 해당 통화의 환율 로드
-                                            loadExchangeRate();
-                                        }}
-                                        className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                                    >
-                                        <option value="AUD">🇦🇺 호주 달러 (AUD)</option>
-                                        <option value="USD">🇺🇸 미국 달러 (USD)</option>
-                                        <option value="VND">🇻🇳 베트남 동 (VND)</option>
-                                        <option value="JPY">🇯🇵 일본 엔화 (JPY)</option>
-                                        <option value="EUR">🇪🇺 유로 (EUR)</option>
-                                        <option value="CNY">🇨🇳 중국 위안 (CNY)</option>
-                                        <option value="HKD">🇭🇰 홍콩 달러 (HKD)</option>
-                                        <option value="THB">🇹🇭 태국 바트 (THB)</option>
-                                        <option value="GBP">🇬🇧 영국 파운드 (GBP)</option>
-                                        <option value="NZD">🇳🇿 뉴질랜드 달러 (NZD)</option>
-                                        <option value="CHF">🇨🇭 스위스 프랑 (CHF)</option>
-                                        <option value="PHP">🇵🇭 필리핀 페소 (PHP)</option>
-                                        <option value="IDR">🇮🇩 인도네시아 루피아 (IDR)</option>
-                                        <option value="MYR">🇲🇾 말레이시아 링깃 (MYR)</option>
-                                    </select>
+                                    <Label htmlFor="tripTitle">여행 제목</Label>
+                                    <Input
+                                        id="tripTitle"
+                                        value={tripTitle}
+                                        onChange={(e) => setTripTitle(e.target.value)}
+                                        placeholder="예: 호주 가족여행"
+                                    />
                                 </div>
 
-                                {/* 선택된 외화 설정 */}
-                                <div className="space-y-2 p-3 border rounded-lg">
-                                    {(() => {
-                                        const currencyNames: Record<Currency, string> = {
-                                            AUD: '호주 달러',
-                                            USD: '미국 달러',
-                                            VND: '베트남 동',
-                                            JPY: '일본 엔화',
-                                            EUR: '유로',
-                                            CNY: '중국 위안',
-                                            HKD: '홍콩 달러',
-                                            THB: '태국 바트',
-                                            GBP: '영국 파운드',
-                                            NZD: '뉴질랜드 달러',
-                                            CHF: '스위스 프랑',
-                                            PHP: '필리핀 페소',
-                                            IDR: '인도네시아 루피아',
-                                            MYR: '말레이시아 링깃',
-                                        };
-                                        const currency = selectedCurrency;
-                                        const useCustom = useCustomRates[currency];
-                                        const exchangeRate = exchangeRates[currency];
-                                        const customRate = customExchangeRates[currency];
-
-                                        return (
-                                            <>
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="font-medium">{currencyNames[currency]} ({currency})</Label>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-6 w-6"
-                                                        onClick={loadExchangeRate}
-                                                    >
-                                                        <RefreshCw className="w-3 h-3" />
-                                                    </Button>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <Checkbox
-                                                        id={`useCustomRate_${currency}`}
-                                                        checked={useCustom}
-                                                        onCheckedChange={(checked) => 
-                                                            setUseCustomRates((prev) => ({
-                                                                ...prev,
-                                                                [currency]: checked === true,
-                                                            }))
-                                                        }
-                                                    />
-                                                    <Label htmlFor={`useCustomRate_${currency}`} className="cursor-pointer text-sm">
-                                                        사용자 지정 환율 사용
-                                                    </Label>
-                                                </div>
-                                                {exchangeRate && !useCustom && (
-                                                    <div className="p-2 bg-muted rounded">
-                                                        <span className="text-sm font-medium">1 {currency} = {exchangeRate} KRW</span>
-                                                    </div>
-                                                )}
-                                                {useCustom && (
-                                                    <div className="space-y-2">
-                                                        <Label htmlFor={`customRate_${currency}`} className="text-sm">
-                                                            사용자 지정 환율 (1 {currency} = ? KRW)
-                                                        </Label>
-                                                        <Input
-                                                            id={`customRate_${currency}`}
-                                                            type="number"
-                                                            step="0.01"
-                                                            min="1"
-                                                            value={customRate}
-                                                            onChange={(e) => 
-                                                                setCustomExchangeRates((prev) => ({
-                                                                    ...prev,
-                                                                    [currency]: e.target.value,
-                                                                }))
-                                                            }
-                                                            placeholder={exchangeRate ? exchangeRate.toString() : "환율 입력"}
-                                                        />
-                                                    </div>
-                                                )}
-                                                <Button 
-                                                    onClick={() => handleSaveExchangeRate(currency)} 
-                                                    className="w-full" 
-                                                    size="sm"
-                                                    variant="outline"
-                                                >
-                                                    {currency} 환율 저장
-                                                </Button>
-                                            </>
-                                        );
-                                    })()}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="startDate">출발일</Label>
+                                        <Input
+                                            id="startDate"
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className={!dateValidation.isValid && startDate && endDate ? "border-red-500" : ""}
+                                        />
+                                        {!dateValidation.isValid && startDate && endDate && (
+                                            <p className="text-xs text-red-500">{dateValidation.message}</p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="endDate">귀국일</Label>
+                                        <Input
+                                            id="endDate"
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className={!dateValidation.isValid && startDate && endDate ? "border-red-500" : ""}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    )}
-                        </CardContent>
-                    </CollapsibleContent>
-                </Card>
-            </Collapsible>
 
-            {/* 데이터 관리 */}
-            <Collapsible defaultOpen={false}>
-                <Card>
-                    <CardHeader className="pb-3">
-                        <CollapsibleTrigger className="w-full">
-                            <CardTitle className="flex items-center gap-2 text-lg">
-                                <Download className="w-5 h-5 text-primary" />
-                                데이터 관리
-                            </CardTitle>
-                        </CollapsibleTrigger>
-                    </CardHeader>
-                    <CollapsibleContent>
-                        <CardContent className="space-y-3">
-                    <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">
-                            여행 데이터를 백업하거나 복원할 수 있습니다.
-                        </p>
-                        <div className="flex gap-2">
+                                {/* 여행 기간 표시 */}
+                                {tripDuration !== null && tripDuration > 0 && (
+                                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                                        <Calendar className="w-4 h-4 text-primary" />
+                                        <span className="text-sm font-medium">
+                                            여행 기간: <span className="text-primary">{tripDuration}일</span>
+                                        </span>
+                                    </div>
+                                )}
+
+                                <Separator />
+
+                                {/* 여행 구성원 */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="familyCount" className="flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-muted-foreground" />
+                                        인원 수
+                                    </Label>
+                                    <Input
+                                        id="familyCount"
+                                        type="number"
+                                        min={1}
+                                        max={20}
+                                        value={familyCount}
+                                        onChange={(e) => setFamilyCount(Number(e.target.value))}
+                                    />
+                                </div>
+
+                                <Separator />
+
+                                {/* 방문 도시 */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="cities" className="flex items-center gap-2">
+                                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                                        방문 도시 (쉼표로 구분)
+                                    </Label>
+                                    <Input
+                                        id="cities"
+                                        value={cities}
+                                        onChange={(e) => setCities(e.target.value)}
+                                        placeholder="예: 시드니, 멜버른, 브리즈번"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        입력한 도시는 일정 필터에서 사용됩니다.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Card>
+                </Collapsible>
+
+                {/* 저장 버튼 */}
+                <Card className={hasChanges && canSave ? "border-primary/50 bg-primary/5" : ""}>
+                    <CardContent className="pt-6">
+                        <div className="space-y-3">
+                            {hasChanges && canSave && (
+                                <div className="flex items-center gap-2 text-sm text-primary">
+                                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                                    <span className="font-medium">변경사항이 있습니다</span>
+                                </div>
+                            )}
+                            {!canSave && (tripTitle.trim() !== "" || startDate !== "" || endDate !== "") && (
+                                <div className="flex items-center gap-2 text-sm text-red-500">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>필수 정보를 모두 입력해주세요</span>
+                                </div>
+                            )}
+                            {!hasChanges && canSave && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    <span>모든 변경사항이 저장되었습니다</span>
+                                </div>
+                            )}
                             <Button
-                                onClick={handleExportData}
-                                variant="outline"
-                                className="flex-1 gap-2"
-                                disabled={!selectedTripId}
+                                onClick={() => {
+                                    console.log("저장 버튼 클릭됨", { saving, canSave, hasChanges, tripId });
+                                    handleSave();
+                                }}
+                                className="w-full gap-2 h-11"
+                                disabled={saving || !canSave}
+                                variant={hasChanges && canSave ? "default" : "outline"}
                             >
-                                <Download className="w-4 h-4" />
-                                내보내기
-                            </Button>
-                            <Button
-                                onClick={handleImportData}
-                                variant="outline"
-                                className="flex-1 gap-2"
-                            >
-                                <Upload className="w-4 h-4" />
-                                가져오기
+                                {saving ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        저장 중...
+                                    </>
+                                ) : canSave ? (
+                                    <>
+                                        <Save className="w-4 h-4" />
+                                        {hasChanges ? "변경사항 저장" : "저장"}
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4" />
+                                        저장
+                                    </>
+                                )}
                             </Button>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            ⚠️ 가져오기는 기존 데이터를 모두 교체합니다.
-                        </p>
-                    </div>
-                        </CardContent>
-                    </CollapsibleContent>
+                    </CardContent>
                 </Card>
-            </Collapsible>
 
-            <Separator />
+                <Separator />
 
-            {/* 앱 정보 */}
-            <div className="text-center text-xs text-muted-foreground space-y-1">
-                <p>J여관 v1.0</p>
-                <p>한달 가족여행 전용 운영 시스템</p>
-            </div>
+                {/* 여행 통계 */}
+                <Collapsible defaultOpen={false}>
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CollapsibleTrigger className="w-full">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <BarChart3 className="w-5 h-5 text-primary" />
+                                    여행 통계
+                                </CardTitle>
+                            </CollapsibleTrigger>
+                        </CardHeader>
+                        <CollapsibleContent>
+                            <CardContent>
+                                {loadingStats ? (
+                                    <div className="flex justify-center py-4">
+                                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="text-center p-3 bg-muted rounded-lg">
+                                            <p className="text-2xl font-bold text-primary">{stats.schedules}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">일정</p>
+                                        </div>
+                                        <div className="text-center p-3 bg-muted rounded-lg">
+                                            <p className="text-2xl font-bold text-primary">{stats.expenses}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">지출</p>
+                                        </div>
+                                        <div className="text-center p-3 bg-muted rounded-lg">
+                                            <p className="text-2xl font-bold text-primary">{stats.places}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">장소</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Card>
+                </Collapsible>
+
+                {/* 환율 설정 */}
+                <Collapsible defaultOpen={false}>
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CollapsibleTrigger className="w-full">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <DollarSign className="w-5 h-5 text-primary" />
+                                    환율 설정
+                                </CardTitle>
+                            </CollapsibleTrigger>
+                        </CardHeader>
+                        <CollapsibleContent>
+                            <CardContent className="space-y-4">
+                                {loadingRate ? (
+                                    <div className="flex justify-center py-4">
+                                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="space-y-4">
+                                            {/* 외화 선택 */}
+                                            <div className="space-y-2">
+                                                <Label htmlFor="currencySelect">외화 선택</Label>
+                                                <select
+                                                    id="currencySelect"
+                                                    value={selectedCurrency}
+                                                    onChange={(e) => {
+                                                        const newCurrency = e.target.value as Currency;
+                                                        setSelectedCurrency(newCurrency);
+                                                        localStorage.setItem('selectedCurrency', newCurrency);
+                                                        // 선택된 통화 변경 시 해당 통화의 환율 로드
+                                                        loadExchangeRate();
+                                                    }}
+                                                    className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                                                >
+                                                    <option value="AUD">🇦🇺 호주 달러 (AUD)</option>
+                                                    <option value="USD">🇺🇸 미국 달러 (USD)</option>
+                                                    <option value="VND">🇻🇳 베트남 동 (VND)</option>
+                                                    <option value="JPY">🇯🇵 일본 엔화 (JPY)</option>
+                                                    <option value="EUR">🇪🇺 유로 (EUR)</option>
+                                                    <option value="CNY">🇨🇳 중국 위안 (CNY)</option>
+                                                    <option value="HKD">🇭🇰 홍콩 달러 (HKD)</option>
+                                                    <option value="THB">🇹🇭 태국 바트 (THB)</option>
+                                                    <option value="GBP">🇬🇧 영국 파운드 (GBP)</option>
+                                                    <option value="NZD">🇳🇿 뉴질랜드 달러 (NZD)</option>
+                                                    <option value="CHF">🇨🇭 스위스 프랑 (CHF)</option>
+                                                    <option value="PHP">🇵🇭 필리핀 페소 (PHP)</option>
+                                                    <option value="IDR">🇮🇩 인도네시아 루피아 (IDR)</option>
+                                                    <option value="MYR">🇲🇾 말레이시아 링깃 (MYR)</option>
+                                                </select>
+                                            </div>
+
+                                            {/* 선택된 외화 설정 */}
+                                            <div className="space-y-2 p-3 border rounded-lg">
+                                                {(() => {
+                                                    const currencyNames: Record<Currency, string> = {
+                                                        AUD: '호주 달러',
+                                                        USD: '미국 달러',
+                                                        VND: '베트남 동',
+                                                        JPY: '일본 엔화',
+                                                        EUR: '유로',
+                                                        CNY: '중국 위안',
+                                                        HKD: '홍콩 달러',
+                                                        THB: '태국 바트',
+                                                        GBP: '영국 파운드',
+                                                        NZD: '뉴질랜드 달러',
+                                                        CHF: '스위스 프랑',
+                                                        PHP: '필리핀 페소',
+                                                        IDR: '인도네시아 루피아',
+                                                        MYR: '말레이시아 링깃',
+                                                    };
+                                                    const currency = selectedCurrency;
+                                                    const useCustom = useCustomRates[currency];
+                                                    const exchangeRate = exchangeRates[currency];
+                                                    const customRate = customExchangeRates[currency];
+
+                                                    return (
+                                                        <>
+                                                            <div className="flex items-center justify-between">
+                                                                <Label className="font-medium">{currencyNames[currency]} ({currency})</Label>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-6 w-6"
+                                                                    onClick={loadExchangeRate}
+                                                                >
+                                                                    <RefreshCw className="w-3 h-3" />
+                                                                </Button>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Checkbox
+                                                                    id={`useCustomRate_${currency}`}
+                                                                    checked={useCustom}
+                                                                    onCheckedChange={(checked) =>
+                                                                        setUseCustomRates((prev) => ({
+                                                                            ...prev,
+                                                                            [currency]: checked === true,
+                                                                        }))
+                                                                    }
+                                                                />
+                                                                <Label htmlFor={`useCustomRate_${currency}`} className="cursor-pointer text-sm">
+                                                                    사용자 지정 환율 사용
+                                                                </Label>
+                                                            </div>
+                                                            {exchangeRate && !useCustom && (
+                                                                <div className="p-2 bg-muted rounded">
+                                                                    <span className="text-sm font-medium">1 {currency} = {exchangeRate} KRW</span>
+                                                                </div>
+                                                            )}
+                                                            {useCustom && (
+                                                                <div className="space-y-2">
+                                                                    <Label htmlFor={`customRate_${currency}`} className="text-sm">
+                                                                        사용자 지정 환율 (1 {currency} = ? KRW)
+                                                                    </Label>
+                                                                    <Input
+                                                                        id={`customRate_${currency}`}
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        min="1"
+                                                                        value={customRate}
+                                                                        onChange={(e) =>
+                                                                            setCustomExchangeRates((prev) => ({
+                                                                                ...prev,
+                                                                                [currency]: e.target.value,
+                                                                            }))
+                                                                        }
+                                                                        placeholder={exchangeRate ? exchangeRate.toString() : "환율 입력"}
+                                                                    />
+                                                                </div>
+                                                            )}
+                                                            <Button
+                                                                onClick={() => handleSaveExchangeRate(currency)}
+                                                                className="w-full"
+                                                                size="sm"
+                                                                variant="outline"
+                                                            >
+                                                                {currency} 환율 저장
+                                                            </Button>
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Card>
+                </Collapsible>
+
+                {/* 데이터 관리 */}
+                <Collapsible defaultOpen={false}>
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CollapsibleTrigger className="w-full">
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Download className="w-5 h-5 text-primary" />
+                                    데이터 관리
+                                </CardTitle>
+                            </CollapsibleTrigger>
+                        </CardHeader>
+                        <CollapsibleContent>
+                            <CardContent className="space-y-3">
+                                <div className="space-y-2">
+                                    <p className="text-sm text-muted-foreground">
+                                        여행 데이터를 백업하거나 복원할 수 있습니다.
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            onClick={handleExportData}
+                                            variant="outline"
+                                            className="flex-1 gap-2"
+                                            disabled={!selectedTripId}
+                                        >
+                                            <Download className="w-4 h-4" />
+                                            내보내기
+                                        </Button>
+                                        <Button
+                                            onClick={handleImportData}
+                                            variant="outline"
+                                            className="flex-1 gap-2"
+                                        >
+                                            <Upload className="w-4 h-4" />
+                                            가져오기
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        ⚠️ 가져오기는 기존 데이터를 모두 교체합니다.
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </CollapsibleContent>
+                    </Card>
+                </Collapsible>
+
+                <Separator />
+
+                {/* 앱 정보 */}
+                <div className="text-center text-xs text-muted-foreground space-y-1">
+                    <p>J여관 v1.0</p>
+                    <p>한달 가족여행 전용 운영 시스템</p>
+                </div>
             </div>
         </>
     );
