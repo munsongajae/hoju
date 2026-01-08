@@ -3,9 +3,28 @@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check, MapPin } from "lucide-react";
+import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check, MapPin, GripVertical } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+    DragOverEvent,
+    useDroppable,
+} from "@dnd-kit/core";
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    useSortable,
+    verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export type ScheduleType = "view" | "food" | "move" | "rest" | "shop" | "kids";
 
@@ -20,6 +39,7 @@ export interface ScheduleItemData {
     memo?: string;
     isCompleted?: boolean;
     place_id?: string | null;
+    displayOrder?: number;
     place?: {
         id: string;
         name: string;
@@ -32,6 +52,7 @@ interface ScheduleListProps {
     tripStartDate?: Date | null;
     onItemClick?: (item: ScheduleItemData) => void;
     onToggleComplete?: (item: ScheduleItemData) => void;
+    onOrderChange?: (updates: Array<{ id: string; day: number; displayOrder: number }>) => void;
 }
 
 const typeConfig = {
@@ -43,7 +64,107 @@ const typeConfig = {
     kids: { color: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300", icon: Baby },
 };
 
-export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComplete }: ScheduleListProps) {
+// SortableItem 컴포넌트
+function SortableScheduleItem({
+    item,
+    tripStartDate,
+    onItemClick,
+    onToggleComplete,
+}: {
+    item: ScheduleItemData;
+    tripStartDate?: Date | null;
+    onItemClick?: (item: ScheduleItemData) => void;
+    onToggleComplete?: (item: ScheduleItemData) => void;
+}) {
+    const {
+        attributes,
+        listeners,
+        setNodeRef,
+        transform,
+        transition,
+        isDragging,
+    } = useSortable({ id: item.id });
+
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.5 : 1,
+    };
+
+    const Config = typeConfig[item.type] || typeConfig.view;
+    const Icon = Config.icon;
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={cn(
+                "ml-8 relative py-2 pr-2 flex items-start gap-3",
+                onItemClick && "cursor-pointer hover:bg-muted/50 rounded-lg transition-colors",
+                item.isCompleted && "opacity-50",
+                isDragging && "z-50"
+            )}
+        >
+            <div
+                {...attributes}
+                {...listeners}
+                className="absolute -left-[60px] top-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+            >
+                <GripVertical className="w-4 h-4" />
+            </div>
+            <span className={cn(
+                "absolute -left-[45px] top-2 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background",
+                item.isCompleted ? "bg-green-500 text-white" : Config.color
+            )}>
+                {item.isCompleted ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+            </span>
+
+            {onToggleComplete && (
+                <Checkbox
+                    checked={item.isCompleted || false}
+                    onCheckedChange={() => onToggleComplete(item)}
+                    className="mt-1"
+                    onClick={(e) => e.stopPropagation()}
+                />
+            )}
+
+            <div
+                className="flex-1"
+                onClick={() => onItemClick?.(item)}
+            >
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                    <h4 className={cn(
+                        "text-base font-medium",
+                        item.isCompleted && "line-through"
+                    )}>{item.title}</h4>
+                    <time className="text-xs text-muted-foreground font-mono">{item.time}</time>
+                </div>
+
+                {item.place && (
+                    <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground font-medium">
+                            {item.place.name}
+                        </span>
+                    </div>
+                )}
+                {item.memo && (
+                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                        {item.memo}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComplete, onOrderChange }: ScheduleListProps) {
+    const sensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, {
+            coordinateGetter: sortableKeyboardCoordinates,
+        })
+    );
     // Helper to get actual date for a day number
     const getDateForDay = (dayNum: number) => {
         if (!tripStartDate) return null;
@@ -58,98 +179,176 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
     }
 
     // Group items by Day if showing multiple days
-    // But for now, let's just show a simple list, assuming the parent might handle grouping or we just show a mixed list.
-    // Actually, grouping by Day is essential if "All" is selected.
-
     const groupedItems = items.reduce((acc, item) => {
         if (!acc[item.day]) acc[item.day] = [];
         acc[item.day].push(item);
         return acc;
     }, {} as Record<number, ScheduleItemData[]>);
 
+    // Sort items within each day by displayOrder, then by time
+    Object.keys(groupedItems).forEach((day) => {
+        const dayNum = Number(day);
+        groupedItems[dayNum].sort((a, b) => {
+            const orderA = a.displayOrder ?? 0;
+            const orderB = b.displayOrder ?? 0;
+            if (orderA !== orderB) return orderA - orderB;
+            // If displayOrder is same, sort by time
+            if (a.rawTime && b.rawTime) {
+                return a.rawTime.localeCompare(b.rawTime);
+            }
+            return 0;
+        });
+    });
+
     const sortedDays = Object.keys(groupedItems).map(Number).sort((a, b) => a - b);
+    
+    // 모든 아이템의 ID를 하나의 배열로 만들기
+    const allItemIds = items.map((item) => item.id);
+
+    // Day별 Droppable 영역 컴포넌트
+    function DayDroppable({ day, children }: { day: number; children: React.ReactNode }) {
+        const { setNodeRef } = useDroppable({
+            id: `day-${day}`,
+        });
+
+        return <div ref={setNodeRef}>{children}</div>;
+    }
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event;
+
+        if (!over) {
+            return;
+        }
+
+        // 드래그된 아이템 찾기
+        const draggedItem = items.find((item) => item.id === active.id);
+        if (!draggedItem) {
+            return;
+        }
+
+        // 드롭된 위치가 다른 아이템인지, day 영역인지 확인
+        let targetDay = draggedItem.day;
+        let targetIndex = -1;
+
+        if (typeof over.id === 'string' && over.id.startsWith('day-')) {
+            // Day 영역에 드롭된 경우
+            targetDay = Number(over.id.replace('day-', ''));
+            targetIndex = groupedItems[targetDay]?.length ?? 0;
+        } else {
+            // 다른 아이템 위에 드롭된 경우
+            const targetItem = items.find((item) => item.id === over.id);
+            if (targetItem) {
+                targetDay = targetItem.day;
+                const dayItems = groupedItems[targetDay] || [];
+                targetIndex = dayItems.findIndex((item) => item.id === targetItem.id);
+            }
+        }
+
+        if (targetIndex === -1 && groupedItems[targetDay]) {
+            targetIndex = groupedItems[targetDay].length;
+        }
+
+        // 같은 day 내에서 이동하는 경우
+        if (draggedItem.day === targetDay) {
+            const dayItems = groupedItems[targetDay];
+            const oldIndex = dayItems.findIndex((item) => item.id === active.id);
+            
+            if (oldIndex !== -1 && targetIndex !== -1 && oldIndex !== targetIndex) {
+                const reorderedItems = arrayMove(dayItems, oldIndex, targetIndex);
+                const updates = reorderedItems.map((item, index) => ({
+                    id: item.id,
+                    day: targetDay,
+                    displayOrder: index,
+                }));
+                onOrderChange?.(updates);
+            }
+        } else {
+            // 다른 day로 이동하는 경우
+            const sourceDayItems = groupedItems[draggedItem.day] || [];
+            const targetDayItems = groupedItems[targetDay] || [];
+            
+            const oldIndex = sourceDayItems.findIndex((item) => item.id === active.id);
+            if (oldIndex === -1) return;
+
+            // 소스 day에서 제거
+            const newSourceItems = sourceDayItems.filter((item) => item.id !== active.id);
+            
+            // 타겟 day에 추가
+            const newTargetItems = [...targetDayItems];
+            newTargetItems.splice(targetIndex, 0, { ...draggedItem, day: targetDay });
+
+            // 모든 업데이트 생성
+            const updates: Array<{ id: string; day: number; displayOrder: number }> = [];
+            
+            // 소스 day의 display_order 재조정
+            newSourceItems.forEach((item, index) => {
+                updates.push({
+                    id: item.id,
+                    day: draggedItem.day,
+                    displayOrder: index,
+                });
+            });
+
+            // 타겟 day의 display_order 재조정
+            newTargetItems.forEach((item, index) => {
+                updates.push({
+                    id: item.id,
+                    day: targetDay,
+                    displayOrder: index,
+                });
+            });
+
+            onOrderChange?.(updates);
+        }
+    };
 
     return (
-        <div className="space-y-8">
-            {sortedDays.map((day) => (
-                <div key={day} className="space-y-4">
-                    <h3 className="text-lg font-bold flex items-center gap-2 flex-wrap">
-                        <span className={cn(
-                            "px-2 py-1 rounded text-sm",
-                            day <= 0 ? "bg-zinc-500 text-white" : "bg-primary text-primary-foreground"
-                        )}>
-                            {day <= 0 ? `D-${Math.abs(day - 1)} (준비)` : `Day ${day}`}
-                        </span>
-                        {tripStartDate && (
-                            <span className="text-primary text-sm font-semibold">
-                                {format(getDateForDay(day)!, "M/d (EEE)", { locale: ko })}
-                            </span>
-                        )}
-                        <span className="text-muted-foreground text-sm font-normal">· {groupedItems[day][0].city}</span>
-                    </h3>
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+        >
+            <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
+                <div className="space-y-8">
+                    {sortedDays.map((day) => {
+                        const dayItems = groupedItems[day];
 
-                    <div className="relative border-l border-border ml-3 space-y-6 pb-2">
-                        {groupedItems[day].map((item) => {
-                            const Config = typeConfig[item.type] || typeConfig.view;
-                            const Icon = Config.icon;
-
-                            return (
-                                <div
-                                    key={item.id}
-                                    className={cn(
-                                        "ml-8 relative py-2 pr-2 flex items-start gap-3",
-                                        onItemClick && "cursor-pointer hover:bg-muted/50 rounded-lg transition-colors",
-                                        item.isCompleted && "opacity-50"
-                                    )}
-                                >
-                                    <span className={cn(
-                                        "absolute -left-[45px] top-2 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background",
-                                        item.isCompleted ? "bg-green-500 text-white" : Config.color
-                                    )}>
-                                        {item.isCompleted ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
-                                    </span>
-
-                                    {onToggleComplete && (
-                                        <Checkbox
-                                            checked={item.isCompleted || false}
-                                            onCheckedChange={() => onToggleComplete(item)}
-                                            className="mt-1"
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
-                                    )}
-
-                                    <div
-                                        className="flex-1"
-                                        onClick={() => onItemClick?.(item)}
-                                    >
-                                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                                            <h4 className={cn(
-                                                "text-base font-medium",
-                                                item.isCompleted && "line-through"
-                                            )}>{item.title}</h4>
-                                            <time className="text-xs text-muted-foreground font-mono">{item.time}</time>
-                                        </div>
-
-                                        {item.place && (
-                                            <div className="flex items-center gap-1 mt-1">
-                                                <MapPin className="w-3 h-3 text-muted-foreground" />
-                                                <span className="text-xs text-muted-foreground font-medium">
-                                                    {item.place.name}
-                                                </span>
-                                            </div>
+                        return (
+                            <DayDroppable key={day} day={day}>
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-bold flex items-center gap-2 flex-wrap">
+                                        <span className={cn(
+                                            "px-2 py-1 rounded text-sm",
+                                            day <= 0 ? "bg-zinc-500 text-white" : "bg-primary text-primary-foreground"
+                                        )}>
+                                            {day <= 0 ? `D-${Math.abs(day - 1)} (준비)` : `Day ${day}`}
+                                        </span>
+                                        {tripStartDate && (
+                                            <span className="text-primary text-sm font-semibold">
+                                                {format(getDateForDay(day)!, "M/d (EEE)", { locale: ko })}
+                                            </span>
                                         )}
-                                        {item.memo && (
-                                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                                {item.memo}
-                                            </p>
-                                        )}
+                                        <span className="text-muted-foreground text-sm font-normal">· {dayItems[0].city}</span>
+                                    </h3>
+
+                                    <div className="relative border-l border-border ml-3 space-y-6 pb-2">
+                                        {dayItems.map((item) => (
+                                            <SortableScheduleItem
+                                                key={item.id}
+                                                item={item}
+                                                tripStartDate={tripStartDate}
+                                                onItemClick={onItemClick}
+                                                onToggleComplete={onToggleComplete}
+                                            />
+                                        ))}
                                     </div>
                                 </div>
-                            );
-                        })}
-                    </div>
+                            </DayDroppable>
+                        );
+                    })}
                 </div>
-            ))}
-        </div>
+            </SortableContext>
+        </DndContext>
     );
 }

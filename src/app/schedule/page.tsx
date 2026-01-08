@@ -16,8 +16,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { ExpenseCategory, ExpenseData } from "@/components/expenses/ExpenseList";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { addDays, isAfter, parse, set } from "date-fns";
+import { addDays, format, isAfter, set } from "date-fns";
 
 // Helper to format HH:MM:SS to HH:MM AM/PM
 const formatTime = (timeStr: string) => {
@@ -53,6 +54,7 @@ export default function SchedulePage() {
     const [selectedDay, setSelectedDay] = useState<number | "all">("all");
     const [sortBy, setSortBy] = useState<"time" | "city" | "completed">("time");
     const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "incomplete">("all");
+    const [autoComplete, setAutoComplete] = useState(false);
 
     // Edit Dialog State
     const [editingSchedule, setEditingSchedule] = useState<ScheduleItemData | null>(null);
@@ -109,9 +111,9 @@ export default function SchedulePage() {
         }
     }, [selectedTripId, selectedTrip]);
 
-    // Auto-complete past schedule items
+    // Auto-complete past schedule items (only when autoComplete is enabled)
     useEffect(() => {
-        if (!tripStartDate || items.length === 0) return;
+        if (!autoComplete || !tripStartDate || items.length === 0) return;
 
         const now = new Date();
         const itemsToComplete: ScheduleItemData[] = [];
@@ -146,7 +148,8 @@ export default function SchedulePage() {
                     .eq('id', item.id);
             });
         }
-    }, [items, tripStartDate]);
+    }, [autoComplete, items, tripStartDate]);
+
 
     async function fetchTripInfo() {
         if (selectedTrip && selectedTrip.start_date) {
@@ -170,6 +173,7 @@ export default function SchedulePage() {
                 `)
                 .eq('trip_id', selectedTripId)
                 .order('day_number', { ascending: true })
+                .order('display_order', { ascending: true })
                 .order('start_time', { ascending: true });
 
             if (error) {
@@ -186,6 +190,7 @@ export default function SchedulePage() {
                     memo: item.memo,
                     isCompleted: item.is_completed || false,
                     place_id: item.place_id,
+                    displayOrder: item.display_order ?? 0,
                     place: item.place ? {
                         id: item.place.id,
                         name: item.place.name,
@@ -219,8 +224,27 @@ export default function SchedulePage() {
 
         // 정렬 적용
         filtered = [...filtered].sort((a, b) => {
+            // 같은 day 내에서는 display_order를 우선적으로 사용
+            if (a.day === b.day) {
+                const orderA = a.displayOrder ?? 0;
+                const orderB = b.displayOrder ?? 0;
+                if (orderA !== orderB) {
+                    return orderA - orderB;
+                }
+                // display_order가 같으면 시간순으로 정렬
+                if (a.rawTime && b.rawTime) {
+                    return a.rawTime.localeCompare(b.rawTime);
+                }
+                return 0;
+            }
+
+            // 다른 day 간의 정렬은 기존 로직 사용
             switch (sortBy) {
                 case "time":
+                    // Day가 다르면 day 순서로 먼저 정렬
+                    if (a.day !== b.day) {
+                        return a.day - b.day;
+                    }
                     if (!a.rawTime || !b.rawTime) return 0;
                     return a.rawTime.localeCompare(b.rawTime);
                 case "city":
@@ -228,7 +252,8 @@ export default function SchedulePage() {
                 case "completed":
                     return (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0);
                 default:
-                    return 0;
+                    // 기본적으로 day 순서로 정렬
+                    return a.day - b.day;
             }
         });
 
@@ -261,6 +286,68 @@ export default function SchedulePage() {
         }
     }
 
+    async function handleOrderChange(updates: Array<{ id: string; day: number; displayOrder: number }>) {
+        // Calculate new date for each update based on tripStartDate and new day
+        const updatesWithDate = updates.map((update) => {
+            let newDate = null;
+            if (tripStartDate) {
+                const calculatedDate = addDays(tripStartDate, update.day - 1);
+                newDate = format(calculatedDate, 'yyyy-MM-dd');
+            }
+            return {
+                ...update,
+                date: newDate,
+            };
+        });
+
+        // Optimistic update
+        setItems(prev => {
+            const updatedMap = new Map(updates.map(u => [u.id, u]));
+            return prev.map(item => {
+                const update = updatedMap.get(item.id);
+                if (update) {
+                    return {
+                        ...item,
+                        day: update.day,
+                        displayOrder: update.displayOrder,
+                    };
+                }
+                return item;
+            });
+        });
+
+        try {
+            // Batch update using Promise.all
+            // Update day_number and display_order (date field may not exist in schedules table)
+            const updatePromises = updates.map((update) =>
+                supabase
+                    .from('schedules')
+                    .update({ 
+                        display_order: update.displayOrder,
+                        day_number: update.day,
+                    })
+                    .eq('id', update.id)
+            );
+
+            const results = await Promise.all(updatePromises);
+            const errors = results.filter((result) => result.error);
+            
+            if (errors.length > 0) {
+                console.error('Error updating display order or day:', errors);
+                // Log each error for debugging
+                errors.forEach((result, index) => {
+                    console.error(`Update error ${index + 1}:`, result.error);
+                });
+                // Revert on error by refetching
+                fetchSchedules();
+            }
+        } catch (err) {
+            console.error('Unexpected error updating order:', err);
+            // Revert on error by refetching
+            fetchSchedules();
+        }
+    }
+
     return (
         <div className="flex flex-col h-screen max-h-screen bg-background">
             <div className="flex-none px-4 py-2 space-y-2 bg-background z-10 sticky top-0 border-b">
@@ -288,7 +375,18 @@ export default function SchedulePage() {
                 />
 
                 {/* 필터 및 정렬 */}
-                <div className="flex justify-end gap-2">
+                <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                        <Label htmlFor="auto-complete" className="text-xs text-muted-foreground cursor-pointer">
+                            자동완료
+                        </Label>
+                        <Switch
+                            id="auto-complete"
+                            checked={autoComplete}
+                            onCheckedChange={setAutoComplete}
+                        />
+                    </div>
+                    <div className="flex gap-2">
                     <Select value={sortBy} onValueChange={(value: "time" | "city" | "completed") => setSortBy(value)}>
                         <SelectTrigger className="w-[120px] h-8 text-xs">
                             <ArrowUpDown className="w-3 h-3 mr-2" />
@@ -335,6 +433,7 @@ export default function SchedulePage() {
                             미완료
                         </Button>
                     </div>
+                    </div>
                 </div>
             </div>
 
@@ -352,6 +451,7 @@ export default function SchedulePage() {
                             setDetailDialogOpen(true);
                         }}
                         onToggleComplete={handleToggleComplete}
+                        onOrderChange={handleOrderChange}
                     />
                 )}
             </div>

@@ -19,7 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Trash2, Plus } from "lucide-react";
+import { Loader2, Trash2, Plus, Search, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { ScheduleType, ScheduleItemData } from "./ScheduleList";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
@@ -72,6 +72,8 @@ export function EditScheduleDialog({
     const [memo, setMemo] = useState("");
     const [placeId, setPlaceId] = useState<string>("none");
     const [places, setPlaces] = useState<Array<{ id: string; name: string }>>([]);
+    const [placeSearchOpen, setPlaceSearchOpen] = useState(false);
+    const [placeSearchQuery, setPlaceSearchQuery] = useState("");
 
     // Date Logic
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
@@ -321,6 +323,7 @@ export function EditScheduleDialog({
                                 <Select value={city} onValueChange={(value) => {
                                     setCity(value);
                                     setPlaceId("none"); // 도시 변경 시 장소 초기화
+                                    setPlaceSearchQuery(""); // 검색 쿼리도 초기화
                                 }}>
                                     <SelectTrigger id="edit-city">
                                         <SelectValue />
@@ -345,19 +348,82 @@ export function EditScheduleDialog({
 
                         <div className="grid gap-2">
                             <Label htmlFor="edit-place">장소 연동 (선택)</Label>
-                            <Select value={placeId} onValueChange={setPlaceId}>
-                                <SelectTrigger id="edit-place">
-                                    <SelectValue placeholder="장소를 선택하세요" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="none">장소 없음</SelectItem>
-                                    {places.map((place) => (
-                                        <SelectItem key={place.id} value={place.id}>
-                                            {place.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={placeSearchOpen} onOpenChange={setPlaceSearchOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className="w-full justify-between"
+                                    >
+                                        {placeId === "none" ? (
+                                            <span className="text-muted-foreground">장소를 선택하세요</span>
+                                        ) : (
+                                            places.find((place) => place.id === placeId)?.name || "장소를 선택하세요"
+                                        )}
+                                        <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[400px] p-0" align="start">
+                                    <div className="flex items-center border-b px-3">
+                                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                                        <Input
+                                            placeholder="장소 검색..."
+                                            value={placeSearchQuery}
+                                            onChange={(e) => setPlaceSearchQuery(e.target.value)}
+                                            className="border-0 focus-visible:ring-0"
+                                        />
+                                        {placeSearchQuery && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 w-6 p-0"
+                                                onClick={() => setPlaceSearchQuery("")}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="max-h-[300px] overflow-y-auto">
+                                        <div
+                                            className="px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm"
+                                            onClick={() => {
+                                                setPlaceId("none");
+                                                setPlaceSearchOpen(false);
+                                                setPlaceSearchQuery("");
+                                            }}
+                                        >
+                                            장소 없음
+                                        </div>
+                                        {places
+                                            .filter((place) =>
+                                                place.name.toLowerCase().includes(placeSearchQuery.toLowerCase())
+                                            )
+                                            .map((place) => (
+                                                <div
+                                                    key={place.id}
+                                                    className={cn(
+                                                        "px-2 py-1.5 text-sm cursor-pointer hover:bg-accent rounded-sm",
+                                                        placeId === place.id && "bg-accent"
+                                                    )}
+                                                    onClick={() => {
+                                                        setPlaceId(place.id);
+                                                        setPlaceSearchOpen(false);
+                                                        setPlaceSearchQuery("");
+                                                    }}
+                                                >
+                                                    {place.name}
+                                                </div>
+                                            ))}
+                                        {places.filter((place) =>
+                                            place.name.toLowerCase().includes(placeSearchQuery.toLowerCase())
+                                        ).length === 0 && (
+                                            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                                검색 결과가 없습니다.
+                                            </div>
+                                        )}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         <div className="grid gap-2">
