@@ -1349,7 +1349,7 @@ export default function SettingsPage() {
                 </Collapsible>
 
                 {/* 데이터 관리 */}
-                <Collapsible defaultOpen={true}>
+                <Collapsible defaultOpen={false}>
                     <Card>
                         <CardHeader className="pb-3">
                             <CollapsibleTrigger className="w-full">
