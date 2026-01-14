@@ -177,7 +177,7 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 250, // 250ms 길게 누르면 드래그 모드 활성화 (모바일)
+                delay: 500, // 500ms 길게 누르면 드래그 모드 활성화 (모바일)
                 tolerance: 8, // 8px 이내의 작은 움직임 허용
             },
         }),
