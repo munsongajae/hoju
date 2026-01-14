@@ -128,9 +128,13 @@ function SortableScheduleItem({
                     {...attributes}
                     {...listeners}
                     className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
-                    style={{ touchAction: 'none' }}
+                    style={{ 
+                        touchAction: 'none',
+                        padding: '8px',
+                        margin: '-8px',
+                    }}
                 >
-                    <GripVertical className="w-4 h-4" />
+                    <GripVertical className="w-6 h-6" />
                 </div>
             </div>
 
