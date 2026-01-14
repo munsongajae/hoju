@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
-import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check, MapPin } from "lucide-react";
+import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check, MapPin, GripVertical } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -117,12 +117,22 @@ function SortableScheduleItem({
                 isDragging && "z-50"
             )}
         >
-            <span className={cn(
-                "absolute -left-[45px] top-2 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background",
-                item.isCompleted ? "bg-green-500 text-white" : Config.color
-            )}>
-                {item.isCompleted ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
-            </span>
+            <div className="absolute -left-[45px] top-0 flex flex-col items-center gap-1">
+                <span className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background",
+                    item.isCompleted ? "bg-green-500 text-white" : Config.color
+                )}>
+                    {item.isCompleted ? <Check className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+                </span>
+                <div
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+                    style={{ touchAction: 'none' }}
+                >
+                    <GripVertical className="w-4 h-4" />
+                </div>
+            </div>
 
             {onToggleComplete && (
                 <Checkbox
@@ -134,11 +144,8 @@ function SortableScheduleItem({
             )}
 
             <div
-                {...attributes}
-                {...listeners}
                 className="flex-1"
                 onClick={handleClick}
-                style={{ touchAction: 'none' }}
             >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <h4 className={cn(
@@ -177,8 +184,7 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
         }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 800, // 800ms 길게 누르면 드래그 모드 활성화 (모바일)
-                tolerance: 8, // 8px 이내의 작은 움직임 허용
+                distance: 8, // 8px 이상 이동해야 드래그 시작 (모바일)
             },
         }),
         useSensor(KeyboardSensor, {
