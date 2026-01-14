@@ -108,9 +108,14 @@ function SortableScheduleItem({
             <div
                 {...attributes}
                 {...listeners}
-                className="absolute -left-[60px] top-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors"
+                className="absolute -left-[60px] top-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground transition-colors touch-none"
+                style={{ 
+                    touchAction: 'none',
+                    padding: '8px',
+                    margin: '-8px',
+                }}
             >
-                <GripVertical className="w-4 h-4" />
+                <GripVertical className="w-5 h-5 md:w-4 md:h-4" />
             </div>
             <span className={cn(
                 "absolute -left-[45px] top-2 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background",
@@ -160,7 +165,11 @@ function SortableScheduleItem({
 
 export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComplete, onOrderChange }: ScheduleListProps) {
     const sensors = useSensors(
-        useSensor(PointerSensor),
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // 8px 이상 이동해야 드래그 시작 (모바일에서 더 쉬움)
+            },
+        }),
         useSensor(KeyboardSensor, {
             coordinateGetter: sortableKeyboardCoordinates,
         })
