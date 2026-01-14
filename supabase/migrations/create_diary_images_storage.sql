@@ -28,3 +28,7 @@ with check (bucket_id = 'diary-images');
 create policy "Public Delete for diary images"
 on storage.objects for delete
 using (bucket_id = 'diary-images');
+
+
+
+

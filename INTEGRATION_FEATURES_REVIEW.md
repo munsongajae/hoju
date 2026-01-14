@@ -240,3 +240,7 @@ CREATE INDEX idx_expenses_place_id ON expenses(place_id);
 3. **통합 타임라인 뷰** (모든 데이터를 시간순으로 보기)
 
 이 세 가지 기능만으로도 사용자 경험이 크게 향상될 것입니다.
+
+
+
+

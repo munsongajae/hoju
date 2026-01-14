@@ -48,3 +48,7 @@ create trigger update_memos_updated_at
     before update on public.memos
     for each row
     execute function update_updated_at_column();
+
+
+
+

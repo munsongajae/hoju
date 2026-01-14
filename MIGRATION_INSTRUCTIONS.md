@@ -116,3 +116,7 @@ using (bucket_id = 'diary-images');
 
 - 마이그레이션 파일 위치: `supabase/migrations/add_images_to_diaries.sql`
 - Storage 설정 파일: `supabase/migrations/create_diary_images_storage.sql`
+
+
+
+

@@ -4,3 +4,7 @@ ADD COLUMN IF NOT EXISTS place_id UUID REFERENCES public.places(id) ON DELETE SE
 
 -- Create index for faster queries
 CREATE INDEX IF NOT EXISTS idx_schedules_place_id ON public.schedules(place_id);
+
+
+
+

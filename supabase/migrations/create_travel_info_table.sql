@@ -91,3 +91,7 @@ CREATE TRIGGER update_travel_info_updated_at
     BEFORE UPDATE ON public.travel_info
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+
+
+

@@ -13,3 +13,7 @@ alter table public.trip_budgets enable row level security;
 create policy "Allow public read/write" on public.trip_budgets for all using (true) with check (true);
 
 
+
+
+
+

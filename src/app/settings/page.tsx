@@ -343,6 +343,174 @@ export default function SettingsPage() {
         }
     };
 
+    // 섹션별 데이터 내보내기
+    const handleExportSection = async (section: string) => {
+        try {
+            if (!selectedTripId) {
+                toast.error("여행을 선택해주세요.");
+                return;
+            }
+
+            let data: any[] = [];
+            let tableName = "";
+            let fileName = "";
+
+            switch (section) {
+                case "schedules":
+                    const { data: schedulesData } = await supabase.from("schedules").select("*").eq("trip_id", selectedTripId);
+                    data = schedulesData || [];
+                    tableName = "일정";
+                    fileName = "schedules";
+                    break;
+                case "expenses":
+                    const { data: expensesData } = await supabase.from("expenses").select("*").eq("trip_id", selectedTripId);
+                    data = expensesData || [];
+                    tableName = "지출";
+                    fileName = "expenses";
+                    break;
+                case "places":
+                    const { data: placesData } = await supabase.from("places").select("*").eq("trip_id", selectedTripId);
+                    data = placesData || [];
+                    tableName = "장소";
+                    fileName = "places";
+                    break;
+                case "diaries":
+                    const { data: diariesData } = await supabase.from("diaries").select("*").eq("trip_id", selectedTripId);
+                    data = diariesData || [];
+                    tableName = "일기";
+                    fileName = "diaries";
+                    break;
+                case "memos":
+                    const { data: memosData } = await supabase.from("memos").select("*").eq("trip_id", selectedTripId);
+                    data = memosData || [];
+                    tableName = "메모";
+                    fileName = "memos";
+                    break;
+                case "checklists":
+                    const { data: checklistsData } = await supabase.from("checklists").select("*").eq("trip_id", selectedTripId);
+                    data = checklistsData || [];
+                    tableName = "체크리스트";
+                    fileName = "checklists";
+                    break;
+                case "budgets":
+                    const { data: budgetsData } = await supabase.from("trip_budgets").select("*").eq("trip_id", selectedTripId);
+                    data = budgetsData || [];
+                    tableName = "예산";
+                    fileName = "budgets";
+                    break;
+                default:
+                    toast.error("알 수 없는 섹션입니다.");
+                    return;
+            }
+
+            const exportData = {
+                version: "1.0",
+                exportDate: new Date().toISOString(),
+                section: section,
+                sectionName: tableName,
+                tripTitle: selectedTrip?.title || "Unknown Trip",
+                data: data,
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            const tripTitleForFile = selectedTrip?.title || "trip";
+            a.download = `hoju-${fileName}-${tripTitleForFile}-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast.success(`${tableName} 데이터가 내보내기되었습니다.`);
+        } catch (err: any) {
+            console.error(`Failed to export ${section}:`, err);
+            toast.error(`내보내기 실패: ${err?.message || "알 수 없는 오류"}`);
+        }
+    };
+
+    // 섹션별 데이터 가져오기
+    const handleImportSection = async (section: string) => {
+        try {
+            if (!selectedTripId) {
+                toast.error("여행을 선택해주세요.");
+                return;
+            }
+
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".json";
+            input.onchange = async (e) => {
+                const file = (e.target as HTMLInputElement).files?.[0];
+                if (!file) return;
+
+                try {
+                    const text = await file.text();
+                    const importData = JSON.parse(text);
+
+                    if (!importData.version || !importData.section) {
+                        toast.error("올바른 백업 파일이 아닙니다.");
+                        return;
+                    }
+
+                    if (importData.section !== section) {
+                        toast.error(`이 파일은 ${importData.sectionName || importData.section} 데이터입니다.`);
+                        return;
+                    }
+
+                    if (!confirm(`기존 ${importData.sectionName || section} 데이터를 모두 삭제하고 가져온 데이터로 교체하시겠습니까?`)) {
+                        return;
+                    }
+
+                    // 기존 데이터 삭제
+                    await supabase.from(getTableName(section)).delete().eq("trip_id", selectedTripId);
+
+                    // 새 데이터 가져오기
+                    if (importData.data && importData.data.length > 0) {
+                        // trip_id를 현재 선택된 여행으로 변경
+                        const dataWithTripId = importData.data.map((item: any) => ({
+                            ...item,
+                            trip_id: selectedTripId,
+                        }));
+
+                        const { error } = await supabase.from(getTableName(section)).insert(dataWithTripId);
+
+                        if (error) {
+                            throw error;
+                        }
+                    }
+
+                    toast.success(`${importData.sectionName || section} 데이터가 가져오기되었습니다.`);
+                    
+                    // 통계 새로고침
+                    loadStats();
+                } catch (err: any) {
+                    console.error(`Failed to import ${section}:`, err);
+                    toast.error(`가져오기 실패: ${err?.message || "알 수 없는 오류"}`);
+                }
+            };
+            input.click();
+        } catch (err: any) {
+            console.error(`Failed to import ${section}:`, err);
+            toast.error(`가져오기 실패: ${err?.message || "알 수 없는 오류"}`);
+        }
+    };
+
+    // 섹션명을 테이블명으로 변환
+    const getTableName = (section: string): string => {
+        const tableMap: Record<string, string> = {
+            schedules: "schedules",
+            expenses: "expenses",
+            places: "places",
+            diaries: "diaries",
+            memos: "memos",
+            checklists: "checklists",
+            budgets: "trip_budgets",
+        };
+        return tableMap[section] || section;
+    };
+
     // 데이터 가져오기
     const handleImportData = async () => {
         try {
@@ -1181,7 +1349,7 @@ export default function SettingsPage() {
                 </Collapsible>
 
                 {/* 데이터 관리 */}
-                <Collapsible defaultOpen={false}>
+                <Collapsible defaultOpen={true}>
                     <Card>
                         <CardHeader className="pb-3">
                             <CollapsibleTrigger className="w-full">
@@ -1192,34 +1360,231 @@ export default function SettingsPage() {
                             </CollapsibleTrigger>
                         </CardHeader>
                         <CollapsibleContent>
-                            <CardContent className="space-y-3">
+                            <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <p className="text-sm text-muted-foreground">
-                                        여행 데이터를 백업하거나 복원할 수 있습니다.
+                                        여행 데이터를 섹션별로 백업하거나 복원할 수 있습니다.
                                     </p>
+                                </div>
+
+                                {/* 전체 데이터 내보내기/가져오기 */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-semibold">전체 데이터</Label>
                                     <div className="flex gap-2">
                                         <Button
                                             onClick={handleExportData}
                                             variant="outline"
                                             className="flex-1 gap-2"
                                             disabled={!selectedTripId}
+                                            size="sm"
                                         >
                                             <Download className="w-4 h-4" />
-                                            내보내기
+                                            전체 내보내기
                                         </Button>
                                         <Button
                                             onClick={handleImportData}
                                             variant="outline"
                                             className="flex-1 gap-2"
+                                            size="sm"
                                         >
                                             <Upload className="w-4 h-4" />
-                                            가져오기
+                                            전체 가져오기
                                         </Button>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        ⚠️ 가져오기는 기존 데이터를 모두 교체합니다.
-                                    </p>
                                 </div>
+
+                                <Separator />
+
+                                {/* 섹션별 데이터 관리 */}
+                                <div className="space-y-3">
+                                    <Label className="text-sm font-semibold">섹션별 데이터 관리</Label>
+                                    
+                                    {/* 일정 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">일정</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("schedules")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("schedules")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 지출 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">지출</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("expenses")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("expenses")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 장소 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">장소</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("places")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("places")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 일기 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">일기</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("diaries")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("diaries")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 메모 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">메모</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("memos")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("memos")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 체크리스트 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">체크리스트</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("checklists")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("checklists")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* 예산 */}
+                                    <div className="space-y-1">
+                                        <Label className="text-xs text-muted-foreground">예산</Label>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                onClick={() => handleExportSection("budgets")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                disabled={!selectedTripId}
+                                                size="sm"
+                                            >
+                                                <Download className="w-3 h-3" />
+                                                내보내기
+                                            </Button>
+                                            <Button
+                                                onClick={() => handleImportSection("budgets")}
+                                                variant="outline"
+                                                className="flex-1 gap-2"
+                                                size="sm"
+                                            >
+                                                <Upload className="w-3 h-3" />
+                                                가져오기
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-xs text-muted-foreground">
+                                    ⚠️ 가져오기는 해당 섹션의 기존 데이터를 모두 교체합니다.
+                                </p>
                             </CardContent>
                         </CollapsibleContent>
                     </Card>

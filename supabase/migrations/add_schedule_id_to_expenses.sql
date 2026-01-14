@@ -6,3 +6,7 @@ add column if not exists schedule_id uuid references public.schedules(id) on del
 
 -- 인덱스 추가 (성능 향상)
 create index if not exists idx_expenses_schedule_id on public.expenses(schedule_id);
+
+
+
+

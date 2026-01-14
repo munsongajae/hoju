@@ -18,3 +18,7 @@ create index if not exists idx_checklists_trip_id on public.checklists(trip_id);
 -- 필요시 첫 번째 trip으로 마이그레이션할 수 있음:
 -- UPDATE public.places SET trip_id = (SELECT id FROM public.trips LIMIT 1) WHERE trip_id IS NULL;
 -- UPDATE public.checklists SET trip_id = (SELECT id FROM public.trips LIMIT 1) WHERE trip_id IS NULL;
+
+
+
+
