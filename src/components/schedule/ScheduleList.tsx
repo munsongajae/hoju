@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import {
     TouchSensor,
     useSensor,
     useSensors,
+    DragStartEvent,
     DragEndEvent,
     DragOverEvent,
     useDroppable,
@@ -71,11 +73,13 @@ function SortableScheduleItem({
     tripStartDate,
     onItemClick,
     onToggleComplete,
+    isDraggingContext,
 }: {
     item: ScheduleItemData;
     tripStartDate?: Date | null;
     onItemClick?: (item: ScheduleItemData) => void;
     onToggleComplete?: (item: ScheduleItemData) => void;
+    isDraggingContext?: boolean;
 }) {
     const {
         attributes,
@@ -94,6 +98,13 @@ function SortableScheduleItem({
 
     const Config = typeConfig[item.type] || typeConfig.view;
     const Icon = Config.icon;
+
+    const handleClick = (e: React.MouseEvent) => {
+        // 드래그가 시작되지 않았을 때만 onClick 실행
+        if (!isDragging && !isDraggingContext && onItemClick) {
+            onItemClick(item);
+        }
+    };
 
     return (
         <div
@@ -126,12 +137,8 @@ function SortableScheduleItem({
                 {...attributes}
                 {...listeners}
                 className="flex-1"
-                onClick={(e) => {
-                    // 드래그 중이 아닐 때만 onClick 실행
-                    if (!isDragging) {
-                        onItemClick?.(item);
-                    }
-                }}
+                onClick={handleClick}
+                style={{ touchAction: 'none' }}
             >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <h4 className={cn(
@@ -160,6 +167,8 @@ function SortableScheduleItem({
 }
 
 export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComplete, onOrderChange }: ScheduleListProps) {
+    const isDraggingRef = useRef(false);
+    
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -225,7 +234,12 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
         return <div ref={setNodeRef}>{children}</div>;
     }
 
+    const handleDragStart = (event: DragStartEvent) => {
+        isDraggingRef.current = true;
+    };
+
     const handleDragEnd = (event: DragEndEvent) => {
+        isDraggingRef.current = false;
         const { active, over } = event;
 
         if (!over) {
@@ -318,6 +332,7 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
         <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
         >
             <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
@@ -351,6 +366,7 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
                                                 tripStartDate={tripStartDate}
                                                 onItemClick={onItemClick}
                                                 onToggleComplete={onToggleComplete}
+                                                isDraggingContext={isDraggingRef.current}
                                             />
                                         ))}
                                     </div>
