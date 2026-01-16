@@ -17,9 +17,10 @@ interface ChecklistGroupProps {
     group: ChecklistGroupData;
     onToggle: (itemId: string, checked: boolean) => void;
     onDelete: (itemId: string) => void;
+    onEdit?: (item: ChecklistItemData) => void;
 }
 
-export function ChecklistGroup({ group, onToggle, onDelete }: ChecklistGroupProps) {
+export function ChecklistGroup({ group, onToggle, onDelete, onEdit }: ChecklistGroupProps) {
     return (
         <div className="space-y-2 mb-6">
             <h3 className="font-semibold text-lg text-primary">{group.title}</h3>
@@ -32,6 +33,7 @@ export function ChecklistGroup({ group, onToggle, onDelete }: ChecklistGroupProp
                         checked={item.checked}
                         onCheckedChange={(c) => onToggle(item.id, c)}
                         onDelete={() => onDelete(item.id)}
+                        onEdit={onEdit ? () => onEdit(item) : undefined}
                     />
                 ))}
             </div>
