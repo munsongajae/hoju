@@ -1,8 +1,11 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { ExpenseData, ExpenseCategory } from "./ExpenseList";
 import { format, startOfWeek, endOfWeek, isSameWeek } from "date-fns";
 import { ko } from "date-fns/locale";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface GroupedExpenseListProps {
     expenses: ExpenseData[];
@@ -29,6 +32,21 @@ const categoryLabels: Record<ExpenseCategory, string> = {
 };
 
 export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedExpenseListProps) {
+    const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+    const [showKRWConversion, setShowKRWConversion] = useState(true); // 원화 환산액 표시 여부
+
+    // 환율 가져오기
+    useEffect(() => {
+        fetch('/api/exchange-rate')
+            .then(res => res.json())
+            .then(data => {
+                if (data.rate) setExchangeRate(data.rate);
+            })
+            .catch(err => console.error("Failed to fetch rate:", err));
+    }, []);
+
+    const safeRate = exchangeRate || 900; // 기본값 900
+
     // Group expenses by day or week
     const grouped = expenses.reduce((acc, expense) => {
         let key: string;
@@ -59,6 +77,17 @@ export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedE
 
     return (
         <div className="space-y-6">
+            {/* 원화 환산액 표시 토글 */}
+            <div className="flex items-center justify-end gap-2 pb-2">
+                <Label htmlFor="krw-conversion-toggle" className="text-sm text-muted-foreground cursor-pointer">
+                    원화 환산액 표시
+                </Label>
+                <Switch
+                    id="krw-conversion-toggle"
+                    checked={showKRWConversion}
+                    onCheckedChange={setShowKRWConversion}
+                />
+            </div>
             {sortedKeys.map((key) => {
                 const items = grouped[key];
                 const totalAUD = items
@@ -85,6 +114,11 @@ export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedE
                             <div className="text-right">
                                 <span className="text-sm font-bold text-primary block">A$ {totalAUD.toLocaleString()}</span>
                                 {totalKRW > 0 && <span className="text-xs font-semibold text-orange-600 dark:text-orange-400 block">+ ₩ {totalKRW.toLocaleString()}</span>}
+                                {showKRWConversion && totalAUD > 0 && exchangeRate && (
+                                    <span className="text-xs text-muted-foreground block mt-0.5">
+                                        ≈ ₩{Math.round(totalAUD * safeRate + totalKRW).toLocaleString()}
+                                    </span>
+                                )}
                             </div>
                         </div>
                         <div className="space-y-2">
@@ -125,7 +159,14 @@ export function GroupedExpenseList({ expenses, viewMode, onItemClick }: GroupedE
                                             </div>
                                         </div>
                                         <div className="font-semibold text-right">
-                                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                                            <div className="flex flex-col items-end">
+                                                <span>{isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}</span>
+                                                {showKRWConversion && !isKRW && exchangeRate && (
+                                                    <span className="text-xs text-muted-foreground font-normal mt-0.5">
+                                                        ≈ ₩{Math.round(expense.amount * safeRate).toLocaleString()}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );

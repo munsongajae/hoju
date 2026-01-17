@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 
 import { ExpenseData, ExpenseCategory } from "./ExpenseList";
 
@@ -98,40 +99,84 @@ export function ExpenseSummary({ expenses }: ExpenseSummaryProps) {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="space-y-3 mt-2">
-                    {sortedCategories.map((cat) => {
-                        // For category breakdown, we used equivalent AUD.
-                        // We can display the breakdown in mixed format? No, percentage is better.
-                        const amountInAUD = byCategory[cat];
-                        const percentage = totalEquivalentAUD > 0 ? Math.round((amountInAUD / totalEquivalentAUD) * 100) : 0;
+                <Collapsible defaultOpen={false}>
+                    <CollapsibleTrigger className="w-full">
+                        <div className="flex items-center justify-between text-sm font-semibold py-2">
+                            <span>항목별 지출</span>
+                        </div>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <div className="space-y-3 mt-2 pt-2 border-t">
+                            {sortedCategories.map((cat) => {
+                                // For category breakdown, we used equivalent AUD.
+                                // We can display the breakdown in mixed format? No, percentage is better.
+                                const amountInAUD = byCategory[cat];
+                                const percentage = totalEquivalentAUD > 0 ? Math.round((amountInAUD / totalEquivalentAUD) * 100) : 0;
 
-                        // Drill down to see raw amounts
-                        const catAUD = expenses.filter(e => e.category === cat && (!e.currency || e.currency === 'AUD')).reduce((s, i) => s + i.amount, 0);
-                        const catKRW = expenses.filter(e => e.category === cat && e.currency === 'KRW').reduce((s, i) => s + i.amount, 0);
+                                // Drill down to see raw amounts
+                                const catAUD = expenses.filter(e => e.category === cat && (!e.currency || e.currency === 'AUD')).reduce((s, i) => s + i.amount, 0);
+                                const catKRW = expenses.filter(e => e.category === cat && e.currency === 'KRW').reduce((s, i) => s + i.amount, 0);
+                                const catEquivalentKRW = catKRW + (catAUD * safeRate);
 
-                        return (
-                            <div key={cat} className="space-y-1">
-                                <div className="flex justify-between text-xs">
-                                    <span className="capitalize">{CAT_LABELS[cat] || cat}</span>
-                                    <span className="text-muted-foreground flex gap-2">
-                                        <span>{percentage}%</span>
-                                        <span>
-                                            {catAUD > 0 && `A$${catAUD.toLocaleString()}`}
-                                            {catAUD > 0 && catKRW > 0 && ' + '}
-                                            {catKRW > 0 && `₩${catKRW.toLocaleString()}`}
-                                        </span>
-                                    </span>
-                                </div>
-                                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                                    <div
-                                        className="h-full bg-primary"
-                                        style={{ width: `${percentage}%` }}
-                                    />
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                                return (
+                                    <Collapsible key={cat} defaultOpen={false}>
+                                        <div className="space-y-1">
+                                            <CollapsibleTrigger className="w-full">
+                                                <div className="flex justify-between text-xs items-center">
+                                                    <span className="capitalize">{CAT_LABELS[cat] || cat}</span>
+                                                    <span className="text-muted-foreground flex gap-2 items-center">
+                                                        <span>{percentage}%</span>
+                                                        <span>
+                                                            {catAUD > 0 && `A$${catAUD.toLocaleString()}`}
+                                                            {catAUD > 0 && catKRW > 0 && ' + '}
+                                                            {catKRW > 0 && `₩${catKRW.toLocaleString()}`}
+                                                        </span>
+                                                        {exchangeRate && (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                (≈ ₩{Math.round(catEquivalentKRW).toLocaleString()})
+                                                            </span>
+                                                        )}
+                                                    </span>
+                                                </div>
+                                            </CollapsibleTrigger>
+                                            <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                                <div
+                                                    className="h-full bg-primary"
+                                                    style={{ width: `${percentage}%` }}
+                                                />
+                                            </div>
+                                            <CollapsibleContent>
+                                                <div className="pt-2 space-y-1 text-xs text-muted-foreground pl-2 border-l-2 border-primary/20">
+                                                    {expenses
+                                                        .filter(e => e.category === cat)
+                                                        .map((expense) => {
+                                                            const isKRW = expense.currency === 'KRW';
+                                                            const expenseKRW = isKRW ? expense.amount : expense.amount * safeRate;
+                                                            return (
+                                                                <div key={expense.id} className="flex justify-between">
+                                                                    <span className="truncate flex-1 mr-2">{expense.title}</span>
+                                                                    <span className="flex gap-1 shrink-0">
+                                                                        <span>
+                                                                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                                                                        </span>
+                                                                        {!isKRW && exchangeRate && (
+                                                                            <span className="text-muted-foreground">
+                                                                                (≈ ₩{Math.round(expenseKRW).toLocaleString()})
+                                                                            </span>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                </div>
+                                            </CollapsibleContent>
+                                        </div>
+                                    </Collapsible>
+                                );
+                            })}
+                        </div>
+                    </CollapsibleContent>
+                </Collapsible>
             </CardContent>
         </Card>
     );
