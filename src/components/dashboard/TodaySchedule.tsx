@@ -156,21 +156,6 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                     {item.time}
                                 </time>
                             </div>
-                            <div className="mt-1 flex items-center gap-2 flex-wrap">
-                                <Badge variant="secondary" className={cn("text-[10px] font-medium border-0", typeColors[item.type])}>
-                                    {item.type.toUpperCase()}
-                                </Badge>
-                                {item.place && (
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <MapPin className="w-3 h-3" /> {item.place.name}
-                                    </span>
-                                )}
-                                {item.memo && (
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <AlignLeft className="w-3 h-3" /> 메모
-                                    </span>
-                                )}
-                            </div>
                         </div>
                     </div>
                 ))}

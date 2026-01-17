@@ -42,7 +42,9 @@ interface AddScheduleDialogProps {
         title?: string;
         city?: string;
         memo?: string;
+        day?: number;
     };
+    initialDay?: number;
     trigger?: React.ReactNode;
 }
 
@@ -51,6 +53,7 @@ export function AddScheduleDialog({
     open,
     onOpenChange,
     initialData,
+    initialDay,
     trigger
 }: AddScheduleDialogProps) {
     const [internalOpen, setInternalOpen] = useState(false);
@@ -83,12 +86,25 @@ export function AddScheduleDialog({
 
     // Initialize with initialData when opening
     useEffect(() => {
-        if (finalOpen && initialData) {
-            if (initialData.title) setTitle(initialData.title);
-            if (initialData.city) setCity(initialData.city);
-            if (initialData.memo) setMemo(initialData.memo);
+        if (finalOpen) {
+            if (initialData) {
+                if (initialData.title) setTitle(initialData.title);
+                if (initialData.city) setCity(initialData.city);
+                if (initialData.memo) setMemo(initialData.memo);
+                if (initialData.day !== undefined) {
+                    setDay(initialData.day.toString());
+                }
+            }
+            if (initialDay !== undefined) {
+                setDay(initialDay.toString());
+            }
+        } else {
+            // Reset when closing
+            setTitle("");
+            setMemo("");
+            setPlaceId("none");
         }
-    }, [finalOpen, initialData, isControlled]);
+    }, [finalOpen, initialData, initialDay, isControlled]);
 
     // Fetch trip start date and places
     useEffect(() => {

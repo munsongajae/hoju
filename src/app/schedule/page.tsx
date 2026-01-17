@@ -55,7 +55,11 @@ export default function SchedulePage() {
     const [sortBy, setSortBy] = useState<"time" | "city" | "completed">("time");
     const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "incomplete">("all");
     const [autoComplete, setAutoComplete] = useState(false);
+    const [compactMode, setCompactMode] = useState(true);
 
+    // Add Schedule Dialog State
+    const [addScheduleDialogOpen, setAddScheduleDialogOpen] = useState(false);
+    const [initialDayForAdd, setInitialDayForAdd] = useState<number | null>(null);
     // Edit Dialog State
     const [editingSchedule, setEditingSchedule] = useState<ScheduleItemData | null>(null);
     const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -286,6 +290,11 @@ export default function SchedulePage() {
         }
     }
 
+    function handleAddSchedule(day: number) {
+        setInitialDayForAdd(day);
+        setAddScheduleDialogOpen(true);
+    }
+
     async function handleOrderChange(updates: Array<{ id: string; day: number; displayOrder: number }>) {
         // Calculate new date for each update based on tripStartDate and new day
         const updatesWithDate = updates.map((update) => {
@@ -355,7 +364,9 @@ export default function SchedulePage() {
                     <h1 className="text-xl font-bold">여행 일정</h1>
                     <div className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground mr-1">{filteredItems.length}개</span>
-                        <AddScheduleDialog onScheduleAdded={fetchSchedules} />
+                        <AddScheduleDialog 
+                            onScheduleAdded={fetchSchedules}
+                        />
                     </div>
                 </div>
 
@@ -376,20 +387,31 @@ export default function SchedulePage() {
 
                 {/* 필터 및 정렬 */}
                 <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                        <Label htmlFor="auto-complete" className="text-xs text-muted-foreground cursor-pointer">
-                            자동완료
-                        </Label>
-                        <Switch
-                            id="auto-complete"
-                            checked={autoComplete}
-                            onCheckedChange={setAutoComplete}
-                        />
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-6">
+                            <Label htmlFor="auto-complete" className="text-xs text-muted-foreground cursor-pointer">
+                                자동완료
+                            </Label>
+                            <Label htmlFor="compact-mode" className="text-xs text-muted-foreground cursor-pointer">
+                                간략히
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-6">
+                            <Switch
+                                id="auto-complete"
+                                checked={autoComplete}
+                                onCheckedChange={setAutoComplete}
+                            />
+                            <Switch
+                                id="compact-mode"
+                                checked={compactMode}
+                                onCheckedChange={setCompactMode}
+                            />
+                        </div>
                     </div>
                     <div className="flex gap-2">
                     <Select value={sortBy} onValueChange={(value: "time" | "city" | "completed") => setSortBy(value)}>
                         <SelectTrigger className="w-[120px] h-8 text-xs">
-                            <ArrowUpDown className="w-3 h-3 mr-2" />
                             <SelectValue placeholder="정렬" />
                         </SelectTrigger>
                         <SelectContent>
@@ -452,6 +474,8 @@ export default function SchedulePage() {
                         }}
                         onToggleComplete={handleToggleComplete}
                         onOrderChange={handleOrderChange}
+                        compactMode={compactMode}
+                        onAddSchedule={handleAddSchedule}
                     />
                 )}
             </div>
@@ -583,6 +607,25 @@ export default function SchedulePage() {
                 onOpenChange={setEditDialogOpen}
                 onScheduleUpdated={fetchSchedules}
             />
+
+            {/* DAY별 일정 추가 다이얼로그 */}
+            {initialDayForAdd !== null && (
+                <AddScheduleDialog
+                    onScheduleAdded={() => {
+                        fetchSchedules();
+                        setAddScheduleDialogOpen(false);
+                        setInitialDayForAdd(null);
+                    }}
+                    open={addScheduleDialogOpen}
+                    onOpenChange={(open) => {
+                        setAddScheduleDialogOpen(open);
+                        if (!open) {
+                            setInitialDayForAdd(null);
+                        }
+                    }}
+                    initialDay={initialDayForAdd}
+                />
+            )}
         </div>
     );
 }
