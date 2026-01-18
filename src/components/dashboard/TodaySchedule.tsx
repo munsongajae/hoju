@@ -11,10 +11,13 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Clock, Tag, AlignLeft, Plus, MapPin } from "lucide-react";
+import { Clock, Tag, AlignLeft, Plus, MapPin, Star, Baby, ExternalLink, Phone, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
+import { EditExpenseDialog } from "@/components/expenses/EditExpenseDialog";
 import { ExpenseCategory, ExpenseData } from "@/components/expenses/ExpenseList";
+import { PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
+import { PlaceDetailDialog } from "@/components/places/PlaceDetailDialog";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
 import { useEffect } from "react";
@@ -32,6 +35,7 @@ interface ScheduleItem {
         id: string;
         name: string;
     } | null;
+    place_id?: string | null;
 }
 
 interface TodayScheduleProps {
@@ -76,13 +80,26 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
     // 연동된 지출
     const [linkedExpenses, setLinkedExpenses] = useState<ExpenseData[]>([]);
     const [loadingExpenses, setLoadingExpenses] = useState(false);
+    const [selectedExpense, setSelectedExpense] = useState<ExpenseData | null>(null);
+    const [expenseEditDialogOpen, setExpenseEditDialogOpen] = useState(false);
 
-    // 상세 다이얼로그 열릴 때 지출 가져오기
+    // 연동된 장소
+    const [linkedPlace, setLinkedPlace] = useState<PlaceData | null>(null);
+    const [loadingPlace, setLoadingPlace] = useState(false);
+    const [placeDetailDialogOpen, setPlaceDetailDialogOpen] = useState(false);
+
+    // 상세 다이얼로그 열릴 때 지출 및 장소 정보 가져오기
     useEffect(() => {
         if (selectedItem && isDialogOpen) {
             fetchLinkedExpenses(selectedItem.id);
+            if (selectedItem.place_id) {
+                fetchLinkedPlace(selectedItem.place_id);
+            } else {
+                setLinkedPlace(null);
+            }
         } else {
             setLinkedExpenses([]);
+            setLinkedPlace(null);
         }
     }, [selectedItem, isDialogOpen]);
 
@@ -112,6 +129,63 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
         } finally {
             setLoadingExpenses(false);
         }
+    };
+
+    const fetchLinkedPlace = async (placeId: string) => {
+        setLoadingPlace(true);
+        try {
+            const { data, error } = await supabase
+                .from("places")
+                .select("*")
+                .eq("id", placeId)
+                .single();
+
+            if (data && !error) {
+                const formattedPlace: PlaceData = {
+                    id: data.id,
+                    name: data.name,
+                    category: data.category as PlaceCategory,
+                    city: data.city || "시드니",
+                    rating: data.rating,
+                    isKidFriendly: data.is_kid_friendly || false,
+                    notes: data.notes || "",
+                    googleMapUrl: data.google_map_url,
+                    isFavorite: data.is_favorite || false,
+                    operatingHours: data.operating_hours,
+                    contactPhone: data.contact_phone,
+                    websiteUrl: data.website_url,
+                    address: data.address,
+                    visitCount: data.visit_count || 0,
+                    lat: data.lat,
+                    lng: data.lng,
+                };
+                setLinkedPlace(formattedPlace);
+            }
+        } catch (err) {
+            console.error("Failed to fetch linked place:", err);
+        } finally {
+            setLoadingPlace(false);
+        }
+    };
+
+    const categoryColors: Record<PlaceCategory, string> = {
+        tour: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+        food: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+        shop: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+        medical: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+        play: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+        museum: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+        market: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+    };
+
+    const categoryLabels: Record<PlaceCategory, string> = {
+        tour: "관광",
+        food: "맛집",
+        shop: "쇼핑",
+        medical: "병원/약국",
+        play: "놀이터/키즈",
+        museum: "전시",
+        market: "시장",
     };
 
     const handleItemClick = (item: ScheduleItem) => {
@@ -188,11 +262,106 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                     </Badge>
                                 </div>
 
+                                {/* 연동된 장소 정보 */}
                                 {selectedItem.place && (
-                                    <div className="flex items-center gap-2 text-sm">
-                                        <MapPin className="w-4 h-4 text-muted-foreground" />
-                                        <span className="font-medium text-muted-foreground">장소:</span>
-                                        <span>{selectedItem.place.name}</span>
+                                    <div className="border-t pt-4 space-y-3">
+                                        <Label className="text-sm font-medium">연동된 장소</Label>
+                                        {loadingPlace ? (
+                                            <div className="flex justify-center py-2">
+                                                <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                                            </div>
+                                        ) : linkedPlace ? (
+                                            <div 
+                                                className="p-3 bg-muted rounded-md space-y-2 cursor-pointer hover:bg-muted/80 transition-colors"
+                                                onClick={() => setPlaceDetailDialogOpen(true)}
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <Badge variant="secondary" className={cn("text-xs font-medium border-0", categoryColors[linkedPlace.category])}>
+                                                                {categoryLabels[linkedPlace.category]}
+                                                            </Badge>
+                                                            {linkedPlace.rating && (
+                                                                <div className="flex items-center text-amber-500 text-xs">
+                                                                    <Star className="w-3 h-3 fill-current mr-0.5" />
+                                                                    {linkedPlace.rating}
+                                                                </div>
+                                                            )}
+                                                            {linkedPlace.isKidFriendly && (
+                                                                <div className="flex items-center text-pink-500 text-xs">
+                                                                    <Baby className="w-3 h-3 mr-0.5" />
+                                                                    키즈
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <h4 className="font-semibold text-base mb-1">{linkedPlace.name}</h4>
+                                                        {linkedPlace.address && (
+                                                            <div className="flex items-start gap-1.5 text-xs text-muted-foreground mb-1">
+                                                                <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
+                                                                <span>{linkedPlace.address}</span>
+                                                            </div>
+                                                        )}
+                                                        {linkedPlace.notes && (
+                                                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{linkedPlace.notes}</p>
+                                                        )}
+                                                        <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border/50">
+                                                            {linkedPlace.operatingHours && (
+                                                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                    <Clock className="w-3 h-3" />
+                                                                    <span>{linkedPlace.operatingHours}</span>
+                                                                </div>
+                                                            )}
+                                                            {linkedPlace.contactPhone && (
+                                                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                                    <Phone className="w-3 h-3" />
+                                                                    <span>{linkedPlace.contactPhone}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {linkedPlace.websiteUrl && (
+                                                            <div className="flex items-center gap-1 text-xs text-primary mt-1">
+                                                                <Globe className="w-3 h-3" />
+                                                                <a 
+                                                                    href={linkedPlace.websiteUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="hover:underline"
+                                                                >
+                                                                    웹사이트
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                        {linkedPlace.googleMapUrl && (
+                                                            <div className="flex items-center gap-1 text-xs text-primary mt-1">
+                                                                <ExternalLink className="w-3 h-3" />
+                                                                <a 
+                                                                    href={linkedPlace.googleMapUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="hover:underline"
+                                                                >
+                                                                    지도에서 보기
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
+                                                    클릭하여 상세 정보 보기
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="p-3 bg-muted rounded-md">
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                                                    <span className="font-medium text-muted-foreground">장소:</span>
+                                                    <span>{selectedItem.place.name}</span>
+                                                </div>
+                                                <p className="text-xs text-muted-foreground mt-2">장소 정보를 불러올 수 없습니다.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -220,7 +389,11 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                                                 return (
                                                     <div
                                                         key={expense.id}
-                                                        className="flex items-center justify-between p-2 bg-muted rounded-md text-sm"
+                                                        className="flex items-center justify-between p-2 bg-muted rounded-md text-sm cursor-pointer hover:bg-muted/80 transition-colors"
+                                                        onClick={() => {
+                                                            setSelectedExpense(expense);
+                                                            setExpenseEditDialogOpen(true);
+                                                        }}
                                                     >
                                                         <div className="flex-1">
                                                             <p className="font-medium">{expense.title}</p>
@@ -268,6 +441,32 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* 장소 상세보기 다이얼로그 */}
+            {linkedPlace && (
+                <PlaceDetailDialog
+                    place={linkedPlace}
+                    open={placeDetailDialogOpen}
+                    onOpenChange={setPlaceDetailDialogOpen}
+                    onEdit={(place) => {
+                        // 장소 수정 다이얼로그는 places 페이지에서 관리
+                        window.location.href = `/places`;
+                    }}
+                />
+            )}
+
+            {/* 지출 상세보기(수정) 다이얼로그 */}
+            <EditExpenseDialog
+                expense={selectedExpense}
+                open={expenseEditDialogOpen}
+                onOpenChange={setExpenseEditDialogOpen}
+                onExpenseUpdated={() => {
+                    // 지출 업데이트 후 연동된 지출 목록 다시 가져오기
+                    if (selectedItem) {
+                        fetchLinkedExpenses(selectedItem.id);
+                    }
+                }}
+            />
         </div>
     );
 }

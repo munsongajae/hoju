@@ -49,7 +49,10 @@ export default function DashboardPage() {
       // 오늘 일정 로드 (현재 여행 일차 기준)
       const { data: scheduleData } = await supabase
         .from("schedules")
-        .select("*")
+        .select(`
+          *,
+          place:places(id, name)
+        `)
         .eq("trip_id", selectedTripId)
         .eq("day_number", dayNum > 0 ? dayNum : 1)
         .order("start_time", { ascending: true });
@@ -61,6 +64,11 @@ export default function DashboardPage() {
           title: item.title,
           type: item.type,
           memo: item.memo,
+          place_id: item.place_id,
+          place: item.place ? {
+            id: item.place.id,
+            name: item.place.name,
+          } : null,
         }));
         setTodaySchedule(formattedSchedule);
       }
