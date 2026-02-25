@@ -309,8 +309,6 @@ export default function DiaryPage() {
         setFormDate(format(new Date(), "yyyy-MM-dd"));
         setFormTitle("");
         setFormContent("");
-        setFormContent("");
-        setFormMoods(["normal"]);
         setFormWeather("sunny");
         setFormImages([]);
         setFormImageUrls([]);
