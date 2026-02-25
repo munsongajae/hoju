@@ -15,7 +15,7 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Smile, Zap, Coffee, Moon, ThermometerSun, Meh, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown, Sun, Cloud, CloudRain, CloudSnow } from "lucide-react";
+import { Plus, Loader2, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown, Sun, Cloud, CloudRain, CloudSnow } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase";
@@ -32,7 +32,6 @@ interface DiaryEntry {
     date: string;
     title: string;
     content: string;
-    mood: string;
     weather?: string;
     image_urls?: string[] | null;
 }
@@ -158,15 +157,6 @@ function FeedImageCarousel({
     );
 }
 
-const MOODS = [
-    { value: "happy", label: "행복", icon: Smile, color: "bg-yellow-100 text-yellow-700" },
-    { value: "excited", label: "신남", icon: Zap, color: "bg-orange-100 text-orange-700" },
-    { value: "relaxed", label: "편안", icon: Coffee, color: "bg-green-100 text-green-700" },
-    { value: "tired", label: "피곤", icon: Moon, color: "bg-blue-100 text-blue-700" },
-    { value: "sick", label: "아픔", icon: ThermometerSun, color: "bg-red-100 text-red-700" },
-    { value: "normal", label: "보통", icon: Meh, color: "bg-zinc-100 text-zinc-700" },
-];
-
 const WEATHERS = [
     { value: "sunny", label: "맑음", icon: Sun, color: "bg-orange-100 text-orange-600" },
     { value: "cloudy", label: "흐림", icon: Cloud, color: "bg-gray-100 text-gray-600" },
@@ -184,7 +174,6 @@ export default function DiaryPage() {
     const { selectedTripId, selectedTrip } = useTrip();
 
     // 필터 상태
-    const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
     const [dateRangeStart, setDateRangeStart] = useState("");
     const [dateRangeEnd, setDateRangeEnd] = useState("");
     const [showFilters, setShowFilters] = useState(false);
@@ -194,7 +183,6 @@ export default function DiaryPage() {
     const [formDate, setFormDate] = useState(format(new Date(), "yyyy-MM-dd"));
     const [formTitle, setFormTitle] = useState("");
     const [formContent, setFormContent] = useState("");
-    const [formMoods, setFormMoods] = useState<string[]>(["normal"]);
     const [formWeather, setFormWeather] = useState<string>("sunny");
     const [formImages, setFormImages] = useState<File[]>([]);
     const [formImageUrls, setFormImageUrls] = useState<string[]>([]);
@@ -339,7 +327,6 @@ export default function DiaryPage() {
         setFormDate(entry.date);
         setFormTitle(entry.title || "");
         setFormContent(entry.content || "");
-        setFormMoods(entry.mood ? entry.mood.split(",") : ["normal"]);
         setFormWeather(entry.weather || "sunny");
         setFormImages([]);
         setFormImageUrls(entry.image_urls || []);
@@ -552,7 +539,6 @@ export default function DiaryPage() {
                 date: formDate,
                 title: formTitle || defaultTitle,
                 content: formContent,
-                mood: formMoods.join(","),
                 weather: formWeather,
                 image_urls: allImageUrls.length > 0 ? allImageUrls : null,
                 updated_at: new Date().toISOString(),
@@ -615,44 +601,19 @@ export default function DiaryPage() {
         }
     }
 
-    const getMoodInfo = (mood: string) => MOODS.find(m => m.value === mood) || MOODS[5];
     const getWeatherInfo = (weather: string) => WEATHERS.find(w => w.value === weather) || WEATHERS[0];
-
-    const toggleMood = (moodValue: string) => {
-        setFormMoods(prev => {
-            if (prev.includes(moodValue)) {
-                // Prevent removing the last mood if there's only one
-                if (prev.length === 1) return prev;
-                return prev.filter(m => m !== moodValue);
-            } else {
-                return [...prev, moodValue];
-            }
-        });
-    };
-
-    const toggleFilterMood = (moodValue: string) => {
-        setSelectedMoods(prev =>
-            prev.includes(moodValue)
-                ? prev.filter(m => m !== moodValue)
-                : [...prev, moodValue]
-        );
-    };
 
     // 필터링된 일기 목록
     const filteredEntries = useMemo(() => {
         return entries.filter((entry) => {
-            // 기분 필터
-            const moodMatch = selectedMoods.length === 0 ||
-                entry.mood.split(",").some(m => selectedMoods.includes(m));
-
             // 날짜 범위 필터
             const entryDate = parseISO(entry.date);
             const startMatch = !dateRangeStart || entryDate >= parseISO(dateRangeStart);
             const endMatch = !dateRangeEnd || entryDate <= parseISO(dateRangeEnd);
 
-            return moodMatch && startMatch && endMatch;
+            return startMatch && endMatch;
         });
-    }, [entries, selectedMoods, dateRangeStart, dateRangeEnd]);
+    }, [entries, dateRangeStart, dateRangeEnd]);
 
     const getDailyData = (dayNumber: number, dateStr: string) => {
         // Calculate correct day number from date to match Schedule logic (diff + 1)
@@ -708,40 +669,6 @@ export default function DiaryPage() {
             {/* 필터 섹션 */}
             {showFilters && (
                 <Card className="p-4 space-y-4">
-                    <div className="space-y-2">
-                        <Label className="text-sm font-medium">기분 필터</Label>
-                        <div className="flex flex-wrap gap-2">
-                            {MOODS.map(mood => {
-                                const Icon = mood.icon;
-                                const isSelected = selectedMoods.includes(mood.value);
-                                return (
-                                    <button
-                                        key={mood.value}
-                                        type="button"
-                                        onClick={() => toggleFilterMood(mood.value)}
-                                        className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${isSelected
-                                            ? mood.color + " ring-2 ring-offset-1 ring-primary"
-                                            : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                                            }`}
-                                    >
-                                        <Icon className="w-4 h-4" />
-                                        {mood.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {selectedMoods.length > 0 && (
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedMoods([])}
-                                className="text-xs"
-                            >
-                                필터 초기화
-                            </Button>
-                        )}
-                    </div>
-
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">날짜 범위</Label>
                         <div className="flex gap-2">
@@ -820,33 +747,6 @@ export default function DiaryPage() {
                                                     })()}
                                                 </Badge>
                                             )}
-                                        </div>
-                                        <div className="flex gap-1">
-                                            {(() => {
-                                                const moodList = entry.mood.split(",");
-                                                const displayMoods = moodList.slice(0, 1);
-                                                const remainingCount = moodList.length - 1;
-
-                                                return (
-                                                    <>
-                                                        {displayMoods.map(m => {
-                                                            const moodInfo = getMoodInfo(m);
-                                                            const MoodIcon = moodInfo.icon;
-                                                            return (
-                                                                <Badge key={m} className={moodInfo.color + " border-0"}>
-                                                                    <MoodIcon className="w-3 h-3 mr-1" />
-                                                                    {moodInfo.label}
-                                                                </Badge>
-                                                            )
-                                                        })}
-                                                        {remainingCount > 0 && (
-                                                            <Badge variant="outline" className="bg-zinc-100 text-zinc-700 border-0">
-                                                                +{remainingCount}
-                                                            </Badge>
-                                                        )}
-                                                    </>
-                                                );
-                                            })()}
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -927,20 +827,6 @@ export default function DiaryPage() {
                     <div className="overflow-y-auto flex-1 min-h-0">
                         {selectedEntry && (
                             <div className="space-y-4 py-4">
-                                {/* 기분 표시 */}
-                                <div className="flex gap-1 flex-wrap">
-                                    {selectedEntry.mood.split(",").map(m => {
-                                        const moodInfo = getMoodInfo(m);
-                                        const MoodIcon = moodInfo.icon;
-                                        return (
-                                            <Badge key={m} className={moodInfo.color + " border-0"}>
-                                                <MoodIcon className="w-3 h-3 mr-1" />
-                                                {moodInfo.label}
-                                            </Badge>
-                                        )
-                                    })}
-                                </div>
-
                                 {/* 이미지 갤러리 */}
                                 {selectedEntry.image_urls && selectedEntry.image_urls.length > 0 && (
                                     <div className="space-y-2">
@@ -1145,29 +1031,6 @@ export default function DiaryPage() {
                                     value={formTitle}
                                     onChange={(e) => setFormTitle(e.target.value)}
                                 />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label>오늘의 기분</Label>
-                                <div className="flex flex-wrap gap-2">
-                                    {MOODS.map(mood => {
-                                        const Icon = mood.icon;
-                                        return (
-                                            <button
-                                                key={mood.value}
-                                                type="button"
-                                                onClick={() => toggleMood(mood.value)}
-                                                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm transition-all ${formMoods.includes(mood.value)
-                                                    ? mood.color + " ring-2 ring-offset-1 ring-primary"
-                                                    : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                                                    }`}
-                                            >
-                                                <Icon className="w-4 h-4" />
-                                                {mood.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
                             </div>
 
                             <div className="space-y-2">
