@@ -26,7 +26,9 @@ export function StatusCard({
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     const isTripStarted = diffDays >= 0;
-    const dayNumber = isTripStarted ? diffDays + 1 : Math.abs(diffDays);
+    const rawDayNumber = diffDays + 1;
+    const clampedDayNumber = Math.min(Math.max(rawDayNumber, 1), totalDays);
+    const dayNumber = isTripStarted ? clampedDayNumber : Math.abs(diffDays);
 
     return (
         <Card className="bg-primary text-primary-foreground border-none shadow-lg pt-2 pb-0">

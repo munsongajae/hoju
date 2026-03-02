@@ -43,8 +43,14 @@ export default function DashboardPage() {
       // 현재 날짜 기준 여행 몇일차인지 계산
       const today = new Date();
       const startDate = parseISO(selectedTrip.start_date);
-      const dayNum = differenceInDays(today, startDate) + 1;
-      setCurrentDayNumber(dayNum > 0 ? dayNum : 1);
+      const endDate = parseISO(selectedTrip.end_date);
+      const totalDays = differenceInDays(endDate, startDate) + 1;
+      const rawDayNum = differenceInDays(today, startDate) + 1;
+      const clampedDayNum = Math.min(
+        Math.max(rawDayNum, 1),
+        totalDays > 0 ? totalDays : 1
+      );
+      setCurrentDayNumber(clampedDayNum);
 
       // 오늘 일정 로드 (현재 여행 일차 기준)
       const { data: scheduleData } = await supabase
@@ -54,7 +60,7 @@ export default function DashboardPage() {
           place:places(id, name)
         `)
         .eq("trip_id", selectedTripId)
-        .eq("day_number", dayNum > 0 ? dayNum : 1)
+        .eq("day_number", clampedDayNum)
         .order("start_time", { ascending: true });
 
       if (scheduleData) {
