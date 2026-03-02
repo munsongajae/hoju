@@ -42,6 +42,8 @@ interface TodayScheduleProps {
     items: ScheduleItem[];
     dayNumber?: number;
     currentCity?: string;
+    isTripEnded?: boolean;
+    daysSinceTripEnded?: number;
 }
 
 const typeColors: Record<string, string> = {
@@ -73,7 +75,7 @@ const mapToExpenseCategory = (type: string): ExpenseCategory => {
     }
 };
 
-export function TodaySchedule({ items, dayNumber, currentCity }: TodayScheduleProps) {
+export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = false, daysSinceTripEnded = 0 }: TodayScheduleProps) {
     const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -234,7 +236,11 @@ export function TodaySchedule({ items, dayNumber, currentCity }: TodaySchedulePr
                     </div>
                 ))}
                 {items.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">오늘 예정된 일정이 없습니다.</p>
+                    <p className="text-center text-muted-foreground py-8">
+                        {isTripEnded
+                            ? `여행을 다녀온지 ${daysSinceTripEnded}일이 지났습니다.`
+                            : "오늘 예정된 일정이 없습니다."}
+                    </p>
                 )}
             </div>
 

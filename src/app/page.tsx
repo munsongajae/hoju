@@ -117,6 +117,9 @@ export default function DashboardPage() {
   const startDate = selectedTrip.start_date ? parseISO(selectedTrip.start_date) : new Date();
   const endDate = selectedTrip.end_date ? parseISO(selectedTrip.end_date) : new Date();
   const totalDays = differenceInDays(endDate, startDate) + 1;
+  const today = new Date();
+  const isTripEnded = today > endDate;
+  const daysSinceTripEnded = isTripEnded ? differenceInDays(today, endDate) : 0;
   const currentCity = selectedTrip.cities?.split(",")[0]?.trim() || "시드니";
   const familyCount = selectedTrip.family_count || 4;
 
@@ -132,7 +135,13 @@ export default function DashboardPage() {
         familyCount={familyCount}
       />
 
-      <TodaySchedule items={todaySchedule} dayNumber={currentDayNumber} currentCity={currentCity} />
+      <TodaySchedule
+        items={todaySchedule}
+        dayNumber={currentDayNumber}
+        currentCity={currentCity}
+        isTripEnded={isTripEnded}
+        daysSinceTripEnded={daysSinceTripEnded}
+      />
 
       <QuickLinks />
     </div>
