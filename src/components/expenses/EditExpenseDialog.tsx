@@ -24,6 +24,60 @@ import { supabase } from "@/lib/supabase";
 import { ExpenseCategory, ExpenseData } from "./ExpenseList";
 import { useTrip } from "@/contexts/TripContext";
 
+const CURRENCIES = [
+  { code: "KRW", name: "대한민국 원", flag: "🇰🇷" },
+  { code: "AUD", name: "호주 달러", flag: "🇦🇺" },
+  { code: "USD", name: "미국 달러", flag: "🇺🇸" },
+  { code: "VND", name: "베트남 동", flag: "🇻🇳" },
+  { code: "JPY", name: "일본 엔", flag: "🇯🇵" },
+  { code: "EUR", name: "유로", flag: "🇪🇺" },
+  { code: "CNY", name: "중국 위안", flag: "🇨🇳" },
+  { code: "HKD", name: "홍콩 달러", flag: "🇭🇰" },
+  { code: "TWD", name: "대만 신타이완달러", flag: "🇹🇼" },
+  { code: "SGD", name: "싱가포르 달러", flag: "🇸🇬" },
+  { code: "THB", name: "태국 바트", flag: "🇹🇭" },
+  { code: "IDR", name: "인도네시아 루피아", flag: "🇮🇩" },
+  { code: "PHP", name: "필리핀 페소", flag: "🇵🇭" },
+  { code: "MYR", name: "말레이시아 링깃", flag: "🇲🇾" },
+  { code: "INR", name: "인도 루피", flag: "🇮🇳" },
+  { code: "PKR", name: "파키스탄 루피", flag: "🇵🇰" },
+  { code: "BDT", name: "방글라데시 타카", flag: "🇧🇩" },
+  { code: "AED", name: "아랍에미리트 디르함", flag: "🇦🇪" },
+  { code: "SAR", name: "사우디아라비아 리얄", flag: "🇸🇦" },
+  { code: "QAR", name: "카타르 리얄", flag: "🇶🇦" },
+  { code: "KWD", name: "쿠웨이트 디나르", flag: "🇰🇼" },
+  { code: "IRR", name: "이란 리알", flag: "🇮🇷" },
+  { code: "ILS", name: "이스라엘 셰켈", flag: "🇮🇱" },
+  { code: "TRY", name: "터키 리라", flag: "🇹🇷" },
+  { code: "GBP", name: "영국 파운드", flag: "🇬🇧" },
+  { code: "CHF", name: "스위스 프랑", flag: "🇨🇭" },
+  { code: "SEK", name: "스웨덴 크로나", flag: "🇸🇪" },
+  { code: "NOK", name: "노르웨이 크로네", flag: "🇳🇴" },
+  { code: "DKK", name: "덴마크 크로네", flag: "🇩🇰" },
+  { code: "PLN", name: "폴란드 즈워티", flag: "🇵🇱" },
+  { code: "CZK", name: "체코 코루나", flag: "🇨🇿" },
+  { code: "HUF", name: "헝가리 포린트", flag: "🇭🇺" },
+  { code: "RUB", name: "러시아 루블", flag: "🇷🇺" },
+  { code: "RON", name: "루마니아 레우", flag: "🇷🇴" },
+  { code: "BGN", name: "불가리아 레프", flag: "🇧🇬" },
+  { code: "CAD", name: "캐나다 달러", flag: "🇨🇦" },
+  { code: "MXN", name: "멕시코 페소", flag: "🇲🇽" },
+  { code: "CUP", name: "쿠바 페소", flag: "🇨🇺" },
+  { code: "BRL", name: "브라질 헤알", flag: "🇧🇷" },
+  { code: "ARS", name: "아르헨티나 페소", flag: "🇦🇷" },
+  { code: "CLP", name: "칠레 페소", flag: "🇨🇱" },
+  { code: "COP", name: "콜롬비아 페소", flag: "🇨🇴" },
+  { code: "PEN", name: "페루 솔", flag: "🇵🇪" },
+  { code: "VES", name: "베네수엘라 볼리바르", flag: "🇻🇪" },
+  { code: "ZAR", name: "남아공 랜드", flag: "🇿🇦" },
+  { code: "EGP", name: "이집트 파운드", flag: "🇪🇬" },
+  { code: "NGN", name: "나이지리아 나이라", flag: "🇳🇬" },
+  { code: "KES", name: "케냐 실링", flag: "🇰🇪" },
+  { code: "MAD", name: "모로코 디르함", flag: "🇲🇦" },
+  { code: "GHS", name: "가나 세디", flag: "🇬🇭" },
+  { code: "NZD", name: "뉴질랜드 달러", flag: "🇳🇿" }
+];
+
 interface EditExpenseDialogProps {
     expense: ExpenseData | null;
     open: boolean;
@@ -45,7 +99,7 @@ export function EditExpenseDialog({
     const [title, setTitle] = useState("");
     const [category, setCategory] = useState<ExpenseCategory>("food");
     const [city, setCity] = useState("시드니");
-    const [currency, setCurrency] = useState<'AUD' | 'KRW'>('AUD');
+    const [currency, setCurrency] = useState<string>('AUD');
 
     const { selectedTripId, selectedTrip } = useTrip();
     const [schedules, setSchedules] = useState<{ id: string; title: string; day_number: number }[]>([]);
@@ -156,29 +210,19 @@ export function EditExpenseDialog({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="grid gap-2">
-                            <Label>통화</Label>
-                            <div className="flex rounded-md shadow-sm">
-                                <button
-                                    type="button"
-                                    onClick={() => setCurrency('AUD')}
-                                    className={`flex-1 px-3 py-2 text-sm font-medium border rounded-l-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'AUD'
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-background text-foreground border-input hover:bg-muted'
-                                        }`}
-                                >
-                                    AUD (A$)
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setCurrency('KRW')}
-                                    className={`flex-1 px-3 py-2 text-sm font-medium border-t border-b border-r rounded-r-md focus:z-10 focus:ring-1 focus:ring-primary ${currency === 'KRW'
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-background text-foreground border-input hover:bg-muted'
-                                        }`}
-                                >
-                                    KRW (₩)
-                                </button>
-                            </div>
+                            <Label htmlFor="currency">통화</Label>
+                            <Select value={currency} onValueChange={(val) => setCurrency(val)}>
+                                <SelectTrigger id="currency">
+                                    <SelectValue placeholder="통화 선택" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {CURRENCIES.map(c => (
+                                        <SelectItem key={c.code} value={c.code}>
+                                            {c.flag} {c.code}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="edit-amount">금액</Label>

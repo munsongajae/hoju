@@ -34,7 +34,7 @@ export default function ExpensesPage() {
   // 검색 및 필터 상태
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "amount">("date");
-  const [selectedCurrencies, setSelectedCurrencies] = useState<("AUD" | "KRW")[]>(["AUD", "KRW"]);
+  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<ExpenseCategory[]>([
     "food",
     "transport",
@@ -135,6 +135,8 @@ export default function ExpensesPage() {
     return filtered;
   }, [expenses, searchQuery, selectedCurrencies, selectedCategories, minAmount, maxAmount, sortBy]);
 
+  const uniqueCurrencies = useMemo(() => Array.from(new Set(expenses.map(e => e.currency || "AUD"))), [expenses]);
+
   const categoryLabels: Record<ExpenseCategory, string> = {
     food: "식비",
     transport: "교통",
@@ -150,10 +152,14 @@ export default function ExpensesPage() {
     );
   };
 
-  const toggleCurrency = (currency: "AUD" | "KRW") => {
-    setSelectedCurrencies((prev) =>
-      prev.includes(currency) ? prev.filter((c) => c !== currency) : [...prev, currency]
-    );
+  const toggleCurrency = (currency: string) => {
+    setSelectedCurrencies((prev) => {
+      // 만약 배열이 비어있는 상태(전체선택)에서 하나를 누르면 그것만 선택되게 처리
+      if (prev.length === 0) return [currency];
+      const newList = prev.includes(currency) ? prev.filter((c) => c !== currency) : [...prev, currency];
+      // 만약 하나도 선택된게 없다면(모두 선택해제) 빈 배열(전체 선택)로 리턴
+      return newList.length === 0 ? [] : newList;
+    });
   };
 
   return (
@@ -240,21 +246,17 @@ export default function ExpensesPage() {
               {/* 통화 필터 */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">통화</Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={selectedCurrencies.includes("AUD") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleCurrency("AUD")}
-                  >
-                    AUD
-                  </Button>
-                  <Button
-                    variant={selectedCurrencies.includes("KRW") ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleCurrency("KRW")}
-                  >
-                    KRW
-                  </Button>
+                <div className="flex flex-wrap gap-2">
+                  {uniqueCurrencies.map(currency => (
+                    <Button
+                      key={currency}
+                      variant={selectedCurrencies.length === 0 || selectedCurrencies.includes(currency) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleCurrency(currency)}
+                    >
+                      {currency}
+                    </Button>
+                  ))}
                 </div>
               </div>
 

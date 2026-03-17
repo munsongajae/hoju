@@ -15,7 +15,7 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown, Sun, Cloud, CloudRain, CloudSnow } from "lucide-react";
+import { Plus, Loader2, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown, Sun, Cloud, CloudRain, CloudSnow, Share2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/lib/supabase";
@@ -636,6 +636,42 @@ export default function DiaryPage() {
         return { dailySchedules, dailyExpenses, totalExpense };
     };
 
+    const handleShare = async () => {
+        if (!selectedEntry) return;
+
+        const dateStr = format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko });
+        const dayStr = selectedEntry.day_number > 0 ? `Day ${selectedEntry.day_number}` : `D-${Math.abs(selectedEntry.day_number - 1)}`;
+        let shareText = `[여행 일기] ${selectedEntry.title}\n일자: ${dateStr} (${dayStr})\n날씨: ${getWeatherInfo(selectedEntry.weather || "sunny").label}\n\n${selectedEntry.content || ""}`;
+
+        const { dailySchedules, dailyExpenses, totalExpense } = getDailyData(selectedEntry.day_number, selectedEntry.date);
+        
+        if (dailySchedules.length > 0) {
+            shareText += `\n\n[이날의 일정]\n` + dailySchedules.map(s => `- ${s.time} ${s.title}${s.placeName ? ` (${s.placeName})` : ''}`).join('\n');
+        }
+        if (dailyExpenses.length > 0) {
+            shareText += `\n\n[이날의 지출]\n` + dailyExpenses.map(e => `- ${e.title}: ${e.currency} ${Number(e.amount).toLocaleString()}`).join('\n');
+            shareText += `\n총액: ${dailyExpenses[0]?.currency} ${totalExpense.toLocaleString()}`;
+        }
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: selectedEntry.title,
+                    text: shareText,
+                });
+            } catch (err) {
+                console.error("공유 실패:", err);
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(shareText);
+                alert("일기 내용이 클립보드에 복사되었습니다.");
+            } catch (err) {
+                console.error("복사 실패:", err);
+                alert("복사에 실패했습니다.");
+            }
+        }
+    };
 
     if (loading) {
         return (
@@ -796,30 +832,43 @@ export default function DiaryPage() {
             <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
                 <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
                     <DialogHeader className="flex-shrink-0">
-                        <DialogTitle className="text-xl">{selectedEntry?.title}</DialogTitle>
-                        <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary" className="font-bold">
-                                {selectedEntry && (selectedEntry.day_number > 0
-                                    ? `Day ${selectedEntry.day_number}`
-                                    : `D-${Math.abs(selectedEntry.day_number - 1)}`)}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                                {selectedEntry && format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko })}
-                            </span>
-                            {/* 날씨 배지 (상세 모달) */}
-                            {selectedEntry?.weather && (
-                                <Badge variant="outline" className={`ml-2 border-0 bg-transparent ${getWeatherInfo(selectedEntry.weather).color}`}>
-                                    {(() => {
-                                        const WIcon = getWeatherInfo(selectedEntry.weather).icon;
-                                        return (
-                                            <div className="flex items-center gap-1">
-                                                <WIcon className="w-4 h-4" />
-                                                <span>{getWeatherInfo(selectedEntry.weather).label}</span>
-                                            </div>
-                                        );
-                                    })()}
-                                </Badge>
-                            )}
+                        <div className="flex items-start justify-between pe-4">
+                            <div className="flex flex-col text-left">
+                                <DialogTitle className="text-xl">{selectedEntry?.title}</DialogTitle>
+                                <div className="flex items-center gap-2 mt-2">
+                                    <Badge variant="secondary" className="font-bold">
+                                        {selectedEntry && (selectedEntry.day_number > 0
+                                            ? `Day ${selectedEntry.day_number}`
+                                            : `D-${Math.abs(selectedEntry.day_number - 1)}`)}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                        {selectedEntry && format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko })}
+                                    </span>
+                                    {/* 날씨 배지 (상세 모달) */}
+                                    {selectedEntry?.weather && (
+                                        <Badge variant="outline" className={`ml-2 border-0 bg-transparent ${getWeatherInfo(selectedEntry.weather).color}`}>
+                                            {(() => {
+                                                const WIcon = getWeatherInfo(selectedEntry.weather).icon;
+                                                return (
+                                                    <div className="flex items-center gap-1">
+                                                        <WIcon className="w-4 h-4" />
+                                                        <span>{getWeatherInfo(selectedEntry.weather).label}</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </Badge>
+                                    )}
+                                </div>
+                            </div>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={handleShare} 
+                                className="h-8 w-8 rounded-full flex-shrink-0"
+                                aria-label="일기 공유/복사하기"
+                            >
+                                <Share2 className="w-4 h-4" />
+                            </Button>
                         </div>
                     </DialogHeader>
                     <div className="overflow-y-auto flex-1 min-h-0">
