@@ -1,17 +1,18 @@
-import { db, Trip, Schedule, Expense, Place, Checklist, TripBudget, Memo } from './db';
+import { db, Trip, Schedule, Expense, Place, Checklist, TripBudget, Memo, Diary } from './db';
 import sampleData from './defaultSampleData.json';
 
 /**
- * 앱 최초 실행 시 또는 데이터가 없을 때 기본 샘플 여행 데이터를 Dexie DB에 초기화합니다.
+ * 앱 실행 시 또는 데이터가 없을 때 기본 샘플 여행 데이터를 Dexie DB에 초기화합니다.
  * @param force 강제로 샘플 데이터를 덮어쓸지 여부 (기본값: false)
  */
 export async function ensureDefaultSampleData(force: boolean = false): Promise<boolean> {
   try {
-    if (!force) {
-      const count = await db.trips.count();
-      if (count > 0) {
-        return false;
-      }
+    const tripCount = await db.trips.count();
+    const diaryCount = await db.diaries.count();
+
+    // force가 아니면서 trips와 diaries가 모두 이미 존재하면 건너뜁니다.
+    if (!force && tripCount > 0 && diaryCount > 0) {
+      return false;
     }
 
     const trips: Trip[] = (sampleData.trips || []) as Trip[];
@@ -62,6 +63,7 @@ export async function ensureDefaultSampleData(force: boolean = false): Promise<b
     }));
 
     const memos: Memo[] = (sampleData.memos || []) as Memo[];
+    const diaries: Diary[] = ((sampleData as any).diaries || []) as Diary[];
 
     await db.transaction('rw', [
       db.trips,
@@ -70,7 +72,8 @@ export async function ensureDefaultSampleData(force: boolean = false): Promise<b
       db.places,
       db.checklists,
       db.trip_budgets,
-      db.memos
+      db.memos,
+      db.diaries
     ], async () => {
       if (force && primaryTripId) {
         await db.trips.where('id').equals(primaryTripId).delete();
@@ -80,6 +83,7 @@ export async function ensureDefaultSampleData(force: boolean = false): Promise<b
         await db.checklists.where('trip_id').equals(primaryTripId).delete();
         await db.trip_budgets.where('trip_id').equals(primaryTripId).delete();
         await db.memos.where('trip_id').equals(primaryTripId).delete();
+        await db.diaries.where('trip_id').equals(primaryTripId).delete();
       }
 
       if (trips.length > 0) await db.trips.bulkPut(trips);
@@ -89,6 +93,7 @@ export async function ensureDefaultSampleData(force: boolean = false): Promise<b
       if (checklists.length > 0) await db.checklists.bulkPut(checklists);
       if (trip_budgets.length > 0) await db.trip_budgets.bulkPut(trip_budgets);
       if (memos.length > 0) await db.memos.bulkPut(memos);
+      if (diaries.length > 0) await db.diaries.bulkPut(diaries);
     });
 
     if (primaryTripId && typeof window !== 'undefined') {
@@ -98,7 +103,7 @@ export async function ensureDefaultSampleData(force: boolean = false): Promise<b
       }
     }
 
-    console.log(`[seedData] 샘플 데이터 초기화 완료 (${trips.length} trips, ${schedules.length} schedules, ${expenses.length} expenses, ${places.length} places)`);
+    console.log(`[seedData] 샘플 데이터 초기화 완료 (${trips.length} trips, ${schedules.length} schedules, ${expenses.length} expenses, ${places.length} places, ${diaries.length} diaries)`);
     return true;
   } catch (error) {
     console.error('[seedData] 샘플 데이터 초기화 실패:', error);
