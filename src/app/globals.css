@@ -47,6 +47,7 @@
 }
 
 :root {
+  --app-font-scale: 1;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -116,6 +117,10 @@
 }
 
 @layer base {
+  html {
+    font-size: calc(16px * var(--app-font-scale));
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
@@ -124,6 +129,16 @@
   }
   .bg-card {
     line-height: unset;
+  }
+}
+
+@layer utilities {
+  .pt-safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .pb-safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
 

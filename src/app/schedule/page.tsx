@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { CityFilter } from "@/components/schedule/CityFilter";
-import { DayFilter } from "@/components/schedule/DayFilter";
+import { CityChipFilter } from "@/components/schedule/CityChipFilter";
 import { ScheduleList, ScheduleItemData, ScheduleType } from "@/components/schedule/ScheduleList";
 import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
 import { EditScheduleDialog } from "@/components/schedule/EditScheduleDialog";
-import { supabase } from "@/lib/supabase";
-import { Loader2, Search, ArrowUpDown, Clock, MapPin, AlignLeft, Plus, Star, Baby, ExternalLink, Phone, Globe } from "lucide-react";
+import { db } from "@/lib/db";
+import { Loader2, Search, ArrowUpDown, Clock, MapPin, AlignLeft, Plus, Star, Baby, ExternalLink, Phone, Globe, Download, Trash2 } from "lucide-react";
 import { useTrip } from "@/contexts/TripContext";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
@@ -24,6 +22,17 @@ import { PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
 import { PlaceDetailDialog } from "@/components/places/PlaceDetailDialog";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { ShareButton } from "@/components/ui/share-button";
+import { formatScheduleText } from "@/lib/shareUtils";
+import { useToast } from "@/hooks/useToast";
+import { ToastContainer } from "@/components/ui/toast";
+import { AIScheduleGenerator } from "@/components/schedule/AIScheduleGenerator";
+import { Sparkles } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory, Encoding } from "@capacitor/filesystem";
+import { Share } from "@capacitor/share";
+import { useTranslation } from "react-i18next";
+import { parseIsoToLocalDate, parseStoredDateToLocal, todayLocalDateYYYYMMDD } from "@/lib/localDate";
 
 // Helper to format HH:MM:SS to HH:MM AM/PM
 const formatTime = (timeStr: string) => {
@@ -36,8 +45,7 @@ const formatTime = (timeStr: string) => {
     return `${h12}:${minutes.padStart(2, '0')} ${ampm}`;
 };
 
-const CITIES = ["전체", "시드니", "멜버른"];
-
+// CITIES 상수는 동적으로 계산됩니다.
 const mapToExpenseCategory = (type: ScheduleType): ExpenseCategory => {
     switch (type) {
         case 'food': return 'food';
@@ -54,11 +62,21 @@ export default function SchedulePage() {
     const [loading, setLoading] = useState(true);
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
     const { selectedTripId, selectedTrip } = useTrip();
+    const toast = useToast();
+    const { t } = useTranslation();
+    const allCityLabel = t("schedule.filter.all");
 
-    const [selectedCity, setSelectedCity] = useState("전체");
-    const [selectedDay, setSelectedDay] = useState<number | "all">("all");
-    const [sortBy, setSortBy] = useState<"time" | "city" | "completed">("time");
-    const [completionFilter, setCompletionFilter] = useState<"all" | "completed" | "incomplete">("all");
+    const parsedCities = useMemo(() => {
+        return selectedTrip?.cities
+            ? selectedTrip.cities.split(",").map((c) => c.trim()).filter(Boolean)
+            : [];
+    }, [selectedTrip?.cities]);
+
+    const [selectedCity, setSelectedCity] = useState<string | "all">("all");
+    const [sortBy, setSortBy] = useState<"time" | "city">("time");
+    /** 완료·미완료 다중 칩 필터 (기본: 둘 다 켜짐 = 전체 표시, 둘 다 끄면 필터 없음 = 전체 표시) */
+    const [showIncompleteItems, setShowIncompleteItems] = useState(true);
+    const [showCompletedItems, setShowCompletedItems] = useState(true);
     const [autoComplete, setAutoComplete] = useState(false);
     const [compactMode, setCompactMode] = useState(true);
 
@@ -83,6 +101,18 @@ export default function SchedulePage() {
     const [loadingPlace, setLoadingPlace] = useState(false);
     const [placeDetailDialogOpen, setPlaceDetailDialogOpen] = useState(false);
 
+    // AI Generator State
+    const [aiGeneratorOpen, setAiGeneratorOpen] = useState(false);
+
+    useEffect(() => {
+        if (parsedCities.length === 0) {
+            setSelectedCity("all");
+            return;
+        }
+        if (selectedCity === "all") return;
+        if (!parsedCities.includes(selectedCity)) setSelectedCity("all");
+    }, [parsedCities, selectedCity]);
+
     // 상세 모달 열릴 때 지출 및 장소 정보 가져오기
     useEffect(() => {
         if (detailSchedule && detailDialogOpen) {
@@ -97,20 +127,20 @@ export default function SchedulePage() {
             setLinkedPlace(null);
         }
     }, [detailSchedule, detailDialogOpen]);
-
     const fetchLinkedExpenses = async (scheduleId: string) => {
         setLoadingExpenses(true);
         try {
-            const { data, error } = await supabase
-                .from("expenses")
-                .select("*")
-                .eq("schedule_id", scheduleId)
-                .order("date", { ascending: false });
+            const data = await db.expenses
+                .where("schedule_id")
+                .equals(scheduleId)
+                .toArray();
+
+            data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             if (data) {
                 const formattedData: ExpenseData[] = data.map((item: any) => ({
                     id: item.id,
-                    date: new Date(item.date),
+                    date: parseStoredDateToLocal(item.date),
                     amount: item.amount,
                     category: item.category as ExpenseCategory,
                     title: item.title,
@@ -129,18 +159,14 @@ export default function SchedulePage() {
     const fetchLinkedPlace = async (placeId: string) => {
         setLoadingPlace(true);
         try {
-            const { data, error } = await supabase
-                .from("places")
-                .select("*")
-                .eq("id", placeId)
-                .single();
+            const data = await db.places.get(placeId);
 
-            if (data && !error) {
+            if (data) {
                 const formattedPlace: PlaceData = {
                     id: data.id,
                     name: data.name,
                     category: data.category as PlaceCategory,
-                    city: data.city || "시드니",
+                    city: data.city || (parsedCities[0] || ""),
                     rating: data.rating,
                     isKidFriendly: data.is_kid_friendly || false,
                     notes: data.notes || "",
@@ -151,8 +177,6 @@ export default function SchedulePage() {
                     websiteUrl: data.website_url,
                     address: data.address,
                     visitCount: data.visit_count || 0,
-                    lat: data.lat,
-                    lng: data.lng,
                 };
                 setLinkedPlace(formattedPlace);
             }
@@ -174,20 +198,25 @@ export default function SchedulePage() {
     };
 
     const categoryLabels: Record<PlaceCategory, string> = {
-        tour: "관광",
-        food: "맛집",
-        shop: "쇼핑",
-        medical: "병원/약국",
-        play: "놀이터/키즈",
-        museum: "전시",
-        market: "시장",
+        tour: t("dashboard.place.tour"),
+        food: t("dashboard.place.food"),
+        shop: t("dashboard.place.shop"),
+        medical: t("dashboard.place.medical"),
+        play: t("dashboard.place.play"),
+        museum: t("dashboard.place.museum"),
+        market: t("dashboard.place.market"),
     };
 
     useEffect(() => {
-        if (selectedTripId) {
-            fetchSchedules();
-            fetchTripInfo();
+        if (!selectedTripId) {
+            setItems([]);
+            setTripStartDate(null);
+            setLoading(false);
+            return;
         }
+
+        fetchSchedules();
+        fetchTripInfo();
     }, [selectedTripId, selectedTrip]);
 
     // Auto-complete past schedule items (only when autoComplete is enabled)
@@ -221,10 +250,7 @@ export default function SchedulePage() {
                 ));
 
                 // Update in database
-                await supabase
-                    .from('schedules')
-                    .update({ is_completed: true })
-                    .eq('id', item.id);
+                await db.schedules.update(item.id, { is_completed: true });
             });
         }
     }, [autoComplete, items, tripStartDate]);
@@ -232,7 +258,7 @@ export default function SchedulePage() {
 
     async function fetchTripInfo() {
         if (selectedTrip && selectedTrip.start_date) {
-            setTripStartDate(new Date(selectedTrip.start_date));
+            setTripStartDate(parseIsoToLocalDate(selectedTrip.start_date));
         }
     }
 
@@ -244,25 +270,36 @@ export default function SchedulePage() {
 
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from('schedules')
-                .select(`
-                    *,
-                    place:places(id, name, category)
-                `)
-                .eq('trip_id', selectedTripId)
-                .order('day_number', { ascending: true })
-                .order('display_order', { ascending: true })
-                .order('start_time', { ascending: true });
+            const schedulesData = await db.schedules
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
+            
+            // Fetch places to simulate join
+            const placeIds = schedulesData.map(s => s.place_id).filter(Boolean) as string[];
+            const places = await db.places.where('id').anyOf(placeIds).toArray();
+            const placesMap = new Map(places.map(p => [p.id, p]));
 
-            if (error) {
-                console.error('Error fetching schedules:', error);
-            } else if (data) {
-                const formattedData: ScheduleItemData[] = data.map((item: any) => ({
+            // 정렬 우선순위: day_number → display_order → start_time → id (안정 정렬)
+            schedulesData.sort((a, b) => {
+                if (a.day_number !== b.day_number) return a.day_number - b.day_number;
+                const orderA = a.display_order ?? 0;
+                const orderB = b.display_order ?? 0;
+                if (orderA !== orderB) return orderA - orderB;
+                const timeA = a.start_time || "";
+                const timeB = b.start_time || "";
+                const timeCmp = timeA.localeCompare(timeB);
+                if (timeCmp !== 0) return timeCmp;
+                return (a.id || "").localeCompare(b.id || "");
+            });
+
+            const formattedData: ScheduleItemData[] = schedulesData.map((item) => {
+                const place = item.place_id ? placesMap.get(item.place_id) : null;
+                return {
                     id: item.id,
                     day: item.day_number,
-                    city: item.city,
-                    time: formatTime(item.start_time),
+                    city: item.city || (parsedCities[0] || ""),
+                    time: formatTime(item.start_time || ""),
                     rawTime: item.start_time,
                     title: item.title,
                     type: item.type as ScheduleType,
@@ -270,14 +307,14 @@ export default function SchedulePage() {
                     isCompleted: item.is_completed || false,
                     place_id: item.place_id,
                     displayOrder: item.display_order ?? 0,
-                    place: item.place ? {
-                        id: item.place.id,
-                        name: item.place.name,
-                        category: item.place.category,
+                    place: place ? {
+                        id: place.id,
+                        name: place.name,
+                        category: place.category,
                     } : null,
-                }));
-                setItems(formattedData);
-            }
+                };
+            });
+            setItems(formattedData);
         } catch (err) {
             console.error('Unexpected error:', err);
         } finally {
@@ -285,20 +322,16 @@ export default function SchedulePage() {
         }
     }
 
-    const maxDay = useMemo(() => {
-        if (items.length === 0) return 30;
-        const max = Math.max(...items.map(item => item.day));
-        return Math.max(max, 30); // 최소 30일은 보장
-    }, [items]);
-
     const filteredItems = useMemo(() => {
         let filtered = items.filter((item) => {
-            const cityMatch = selectedCity === "전체" || item.city === selectedCity;
-            const dayMatch = selectedDay === "all" || item.day === selectedDay;
-            const completionMatch = completionFilter === "all" ||
-                (completionFilter === "completed" && item.isCompleted) ||
-                (completionFilter === "incomplete" && !item.isCompleted);
-            return cityMatch && dayMatch && completionMatch;
+            const cityMatch = selectedCity === "all" || item.city === selectedCity;
+            const completionMatch = (() => {
+                if (showIncompleteItems && showCompletedItems) return true;
+                if (showIncompleteItems) return !item.isCompleted;
+                if (showCompletedItems) return item.isCompleted;
+                return true;
+            })();
+            return cityMatch && completionMatch;
         });
 
         // 정렬 적용
@@ -312,9 +345,11 @@ export default function SchedulePage() {
                 }
                 // display_order가 같으면 시간순으로 정렬
                 if (a.rawTime && b.rawTime) {
-                    return a.rawTime.localeCompare(b.rawTime);
+                    const cmp = a.rawTime.localeCompare(b.rawTime);
+                    if (cmp !== 0) return cmp;
                 }
-                return 0;
+                // 동순위면 id로 안정 정렬 (드래그 후 동일 표시 순서 유지)
+                return (a.id || "").localeCompare(b.id || "");
             }
 
             // 다른 day 간의 정렬은 기존 로직 사용
@@ -328,8 +363,6 @@ export default function SchedulePage() {
                     return a.rawTime.localeCompare(b.rawTime);
                 case "city":
                     return a.city.localeCompare(b.city, "ko");
-                case "completed":
-                    return (a.isCompleted ? 1 : 0) - (b.isCompleted ? 1 : 0);
                 default:
                     // 기본적으로 day 순서로 정렬
                     return a.day - b.day;
@@ -337,7 +370,7 @@ export default function SchedulePage() {
         });
 
         return filtered;
-    }, [items, selectedCity, selectedDay, sortBy, completionFilter]);
+    }, [items, selectedCity, sortBy, showIncompleteItems, showCompletedItems]);
 
     async function handleToggleComplete(item: ScheduleItemData) {
         const newValue = !item.isCompleted;
@@ -348,20 +381,13 @@ export default function SchedulePage() {
         ));
 
         try {
-            const { error } = await supabase
-                .from('schedules')
-                .update({ is_completed: newValue })
-                .eq('id', item.id);
-
-            if (error) {
-                console.error('Error updating completion:', error);
-                // Revert on error
-                setItems(prev => prev.map(i =>
-                    i.id === item.id ? { ...i, isCompleted: !newValue } : i
-                ));
-            }
+            await db.schedules.update(item.id, { is_completed: newValue });
         } catch (err) {
-            console.error('Unexpected error:', err);
+            console.error('Error updating completion:', err);
+            // Revert on error
+            setItems(prev => prev.map(i =>
+                i.id === item.id ? { ...i, isCompleted: !newValue } : i
+            ));
         }
     }
 
@@ -371,17 +397,15 @@ export default function SchedulePage() {
     }
 
     async function handleOrderChange(updates: Array<{ id: string; day: number; displayOrder: number }>) {
-        // Calculate new date for each update based on tripStartDate and new day
+        // 새로 이동한 day로부터 trip 기준 date(YYYY-MM-DD)도 함께 계산해서 DB에 반영해야
+        // day_number와 date의 정합성이 유지된다. (date가 어긋나면 보고서/일기 매핑이 깨짐)
         const updatesWithDate = updates.map((update) => {
-            let newDate = null;
+            let newDate: string | null = null;
             if (tripStartDate) {
                 const calculatedDate = addDays(tripStartDate, update.day - 1);
                 newDate = format(calculatedDate, 'yyyy-MM-dd');
             }
-            return {
-                ...update,
-                date: newDate,
-            };
+            return { ...update, date: newDate };
         });
 
         // Optimistic update
@@ -401,135 +425,237 @@ export default function SchedulePage() {
         });
 
         try {
-            // Batch update using Promise.all
-            // Update day_number and display_order (date field may not exist in schedules table)
-            const updatePromises = updates.map((update) =>
-                supabase
-                    .from('schedules')
-                    .update({ 
-                        display_order: update.displayOrder,
-                        day_number: update.day,
-                    })
-                    .eq('id', update.id)
-            );
-
-            const results = await Promise.all(updatePromises);
-            const errors = results.filter((result) => result.error);
-            
-            if (errors.length > 0) {
-                console.error('Error updating display order or day:', errors);
-                // Log each error for debugging
-                errors.forEach((result, index) => {
-                    console.error(`Update error ${index + 1}:`, result.error);
-                });
-                // Revert on error by refetching
-                fetchSchedules();
-            }
+            await db.transaction('rw', db.schedules, async () => {
+                await Promise.all(
+                    updatesWithDate.map((update) => {
+                        const patch: { display_order: number; day_number: number; date?: string } = {
+                            display_order: update.displayOrder,
+                            day_number: update.day,
+                        };
+                        if (update.date) patch.date = update.date;
+                        return db.schedules.update(update.id, patch);
+                    }),
+                );
+            });
         } catch (err) {
             console.error('Unexpected error updating order:', err);
-            // Revert on error by refetching
             fetchSchedules();
         }
     }
 
+    const handleExportCSV = async () => {
+        if (filteredItems.length === 0) {
+            alert(t("schedule.export.empty"));
+            return;
+        }
+
+        const headers = [
+            t("schedule.csv.header.day"),
+            t("schedule.csv.header.city"),
+            t("schedule.csv.header.category"),
+            t("schedule.csv.header.time"),
+            t("schedule.csv.header.completed"),
+            t("schedule.csv.header.title"),
+            t("schedule.csv.header.memo"),
+        ];
+        
+        const scheduleTypeLabels: Record<ScheduleType, string> = {
+            view: t("schedule.csv.type.view"),
+            food: t("schedule.csv.type.food"),
+            move: t("schedule.csv.type.move"),
+            rest: t("schedule.csv.type.rest"),
+            shop: t("schedule.csv.type.shop"),
+            kids: t("schedule.csv.type.kids"),
+        };
+
+        const csvRows = [
+            headers.join(","),
+            ...filteredItems.map(item => {
+                const day = t("schedule.dayLabel", { day: item.day });
+                const city = item.city || t("common.unspecified");
+                const type = scheduleTypeLabels[item.type] || item.type;
+                const time = item.time || t("common.unspecified");
+                const isCompleted = item.isCompleted ? "O" : "X";
+                const title = `"${item.title.replace(/"/g, '""')}"`;
+                const memo = `"${(item.memo || "").replace(/"/g, '""')}"`;
+
+                return [day, city, type, time, isCompleted, title, memo].join(",");
+            })
+        ];
+
+        const csvString = csvRows.join("\n");
+        const csvData = "\uFEFF" + csvString;
+        const fileName = `${t("schedule.csv.filePrefix")}_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`;
+
+        try {
+            if (Capacitor.isNativePlatform()) {
+                const result = await Filesystem.writeFile({
+                    path: fileName,
+                    data: csvData,
+                    directory: Directory.Cache,
+                    encoding: Encoding.UTF8,
+                });
+
+                await Share.share({
+                    title: t("schedule.export.shareTitle"),
+                    text: t("schedule.export.shareText"),
+                    url: result.uri,
+                    dialogTitle: t("schedule.export.shareDialog"),
+                });
+                return;
+            }
+
+            const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (err: any) {
+            console.error("CSV 내보내기 실패:", err);
+            alert(t("schedule.export.fail", { message: err?.message || t("common.unknownError") }));
+        }
+    };
+
+    const handleDeleteAll = async () => {
+        if (items.length === 0) return;
+        if (!confirm(`일정 전체 ${items.length}개를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+        const allIds = items.map(i => i.id);
+        setItems([]);
+        try {
+            await db.schedules.bulkDelete(allIds);
+            toast.success("일정이 모두 삭제되었습니다.");
+        } catch (err) {
+            console.error("Failed to delete all schedules:", err);
+            fetchSchedules();
+        }
+    };
+
     return (
-        <div className="flex flex-col h-screen max-h-screen bg-background">
-            <div className="flex-none px-4 py-2 space-y-2 bg-background z-10 sticky top-0 border-b">
-                <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-bold">여행 일정</h1>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground mr-1">{filteredItems.length}개</span>
+        <div className="flex flex-col min-h-full bg-background">
+            <div className="flex-none px-4 py-2 space-y-2 bg-muted/40 z-10 sticky top-0 border-b shadow-sm">
+                <div className="flex flex-wrap items-center gap-2 sm:justify-between">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-1 h-5 bg-primary rounded-full shrink-0" />
+                        <h1 className="text-xl font-bold whitespace-nowrap shrink-0">{t("schedule.title")}</h1>
+                    </div>
+                    <div className="flex w-full sm:w-auto items-center gap-1.5 sm:gap-2 flex-wrap justify-start sm:justify-end">
+                        <span className="text-xs text-muted-foreground mr-1">{t("schedule.count", { count: filteredItems.length })}</span>
+                        <ShareButton
+                            title={`${selectedTrip?.title || t("common.trip")} ${t("schedule.title")}`}
+                            generateText={() => formatScheduleText(
+                                selectedTrip?.title || t("common.trip"),
+                                filteredItems.map(item => ({
+                                    day_number: item.day,
+                                    start_time: item.rawTime,
+                                    title: item.title,
+                                    city: item.city,
+                                    type: item.type,
+                                    memo: item.memo,
+                                    is_completed: item.isCompleted,
+                                })),
+                                selectedCity !== "all"
+                                    ? t("schedule.share.cityFilter", { city: selectedCity })
+                                    : undefined
+                            )}
+                        />
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleExportCSV}>
+                            <Download className="w-3.5 h-3.5" />
+                            <span>{t("schedule.exportCsv")}</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 border-primary/50 hover:bg-primary/5"
+                            onClick={() => setAiGeneratorOpen(true)}
+                        >
+                            <Sparkles className="w-3.5 h-3.5 text-primary" />
+                            <span>{t("schedule.aiGenerate")}</span>
+                        </Button>
+                        {items.length > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 text-muted-foreground hover:text-destructive hover:border-destructive/50"
+                                onClick={handleDeleteAll}
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>전체 초기화</span>
+                            </Button>
+                        )}
                         <AddScheduleDialog 
                             onScheduleAdded={fetchSchedules}
                         />
                     </div>
                 </div>
 
-                <CityFilter
-                    cities={CITIES}
-                    selectedCity={selectedCity}
-                    onSelectCity={(city) => {
-                        setSelectedCity(city);
-                        setSelectedDay("all");
-                    }}
-                />
+                {parsedCities.length > 0 && (
+                    <CityChipFilter
+                        cities={parsedCities}
+                        selectedCity={selectedCity}
+                        allLabel={allCityLabel}
+                        onSelectCity={(city) => setSelectedCity(city)}
+                    />
+                )}
 
-                <DayFilter
-                    days={maxDay}
-                    selectedDay={selectedDay}
-                    onSelectDay={setSelectedDay}
-                />
-
-                {/* 필터 및 정렬 */}
-                <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-6">
-                            <Label htmlFor="auto-complete" className="text-xs text-muted-foreground cursor-pointer">
-                                자동완료
-                            </Label>
-                            <Label htmlFor="compact-mode" className="text-xs text-muted-foreground cursor-pointer">
-                                간략히
-                            </Label>
-                        </div>
-                        <div className="flex items-center gap-6">
+                {/* 필터: 자동완료·간략히 왼쪽, 완료/미완료 칩은 남는 우측 공간 */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 w-full justify-between">
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2">
                             <Switch
                                 id="auto-complete"
                                 checked={autoComplete}
                                 onCheckedChange={setAutoComplete}
                             />
+                            <Label htmlFor="auto-complete" className="text-xs text-muted-foreground cursor-pointer">
+                                {t("schedule.filter.autoComplete")}
+                            </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
                             <Switch
                                 id="compact-mode"
                                 checked={compactMode}
                                 onCheckedChange={setCompactMode}
                             />
+                            <Label htmlFor="compact-mode" className="text-xs text-muted-foreground cursor-pointer">
+                                {t("schedule.filter.compact")}
+                            </Label>
                         </div>
                     </div>
-                    <div className="flex gap-2">
-                    <Select value={sortBy} onValueChange={(value: "time" | "city" | "completed") => setSortBy(value)}>
-                        <SelectTrigger className="w-[120px] h-8 text-xs">
-                            <SelectValue placeholder="정렬" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="time">시간순</SelectItem>
-                            <SelectItem value="city">도시순</SelectItem>
-                            <SelectItem value="completed">완료 여부</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <div className="flex gap-1 bg-muted p-1 rounded-lg h-8 items-center">
+                    <div
+                        className="flex items-center gap-1 shrink-0"
+                        role="group"
+                        aria-label={t("schedule.completion.filterGroupAria")}
+                    >
                         <Button
-                            variant="ghost"
+                            type="button"
+                            variant={showIncompleteItems ? "secondary" : "outline"}
                             size="sm"
+                            aria-pressed={showIncompleteItems}
+                            onClick={() => setShowIncompleteItems((v) => !v)}
                             className={cn(
-                                "h-6 px-2 text-[10px] rounded-md",
-                                completionFilter === "all" && "bg-background shadow-sm"
+                                "rounded-full h-7 px-2.5 text-[10px] font-medium",
+                                showIncompleteItems && "bg-secondary"
                             )}
-                            onClick={() => setCompletionFilter("all")}
                         >
-                            전체
+                            {t("schedule.completion.incomplete")}
                         </Button>
                         <Button
-                            variant="ghost"
+                            type="button"
+                            variant={showCompletedItems ? "secondary" : "outline"}
                             size="sm"
+                            aria-pressed={showCompletedItems}
+                            onClick={() => setShowCompletedItems((v) => !v)}
                             className={cn(
-                                "h-6 px-2 text-[10px] rounded-md",
-                                completionFilter === "completed" && "bg-background shadow-sm"
+                                "rounded-full h-7 px-2.5 text-[10px] font-medium",
+                                showCompletedItems && "bg-secondary"
                             )}
-                            onClick={() => setCompletionFilter("completed")}
                         >
-                            완료
+                            {t("schedule.completion.completed")}
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className={cn(
-                                "h-6 px-2 text-[10px] rounded-md",
-                                completionFilter === "incomplete" && "bg-background shadow-sm"
-                            )}
-                            onClick={() => setCompletionFilter("incomplete")}
-                        >
-                            미완료
-                        </Button>
-                    </div>
                     </div>
                 </div>
             </div>
@@ -542,6 +668,7 @@ export default function SchedulePage() {
                 ) : (
                     <ScheduleList
                         items={filteredItems}
+                        tripTitle={selectedTrip?.title || t("common.trip")}
                         tripStartDate={tripStartDate}
                         onItemClick={(item) => {
                             setDetailSchedule(item);
@@ -559,25 +686,25 @@ export default function SchedulePage() {
                 <DialogContent className="sm:max-w-[480px] max-h-[90vh] !flex !flex-col overflow-hidden">
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-xl">{detailSchedule?.title}</DialogTitle>
-                        <DialogDescription>일정 상세 정보입니다.</DialogDescription>
+                        <DialogDescription>{t("schedule.detail.description")}</DialogDescription>
                     </DialogHeader>
                     <div className="overflow-y-auto flex-1 min-h-0 space-y-4">
                         {detailSchedule && (
                             <>
                                 <div className="flex items-center gap-2 text-sm">
                                     <Clock className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">시간:</span>
+                                    <span className="font-medium text-muted-foreground">{t("schedule.detail.time")}:</span>
                                     <span>{detailSchedule.time}</span>
                                 </div>
                                 <div className="flex items-center gap-2 text-sm">
                                     <MapPin className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">도시:</span>
+                                    <span className="font-medium text-muted-foreground">{t("schedule.detail.city")}:</span>
                                     <span>{detailSchedule.city}</span>
                                 </div>
                                 {/* 연동된 장소 정보 */}
                                 {detailSchedule.place && (
                                     <div className="border-t pt-4 space-y-3">
-                                        <Label className="text-sm font-medium">연동된 장소</Label>
+                                        <Label className="text-sm font-medium">{t("schedule.detail.linkedPlace")}</Label>
                                         {loadingPlace ? (
                                             <div className="flex justify-center py-2">
                                                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -602,7 +729,7 @@ export default function SchedulePage() {
                                                             {linkedPlace.isKidFriendly && (
                                                                 <div className="flex items-center text-pink-500 text-xs">
                                                                     <Baby className="w-3 h-3 mr-0.5" />
-                                                                    키즈
+                                                                    {t("dashboard.today.kids")}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -740,9 +867,9 @@ export default function SchedulePage() {
                             }
                             initialData={{
                                 title: detailSchedule?.title || "",
-                                date: new Date().toISOString().split('T')[0],
+                                date: todayLocalDateYYYYMMDD(),
                                 category: detailSchedule ? mapToExpenseCategory(detailSchedule.type) : 'etc',
-                                city: detailSchedule?.city || "시드니",
+                                city: detailSchedule?.city || (parsedCities[0] || ""),
                                 scheduleId: detailSchedule?.id,
                             }}
                             onExpenseAdded={() => {
@@ -750,6 +877,24 @@ export default function SchedulePage() {
                             }}
                         />
                         <div className="flex gap-2">
+                            <ShareButton
+                                title={`일정 공유: ${detailSchedule?.title}`}
+                                size="default"
+                                variant="outline"
+                                generateText={() => formatScheduleText(
+                                    selectedTrip?.title || "여행",
+                                    detailSchedule ? [{
+                                        day_number: detailSchedule.day,
+                                        start_time: detailSchedule.rawTime,
+                                        title: detailSchedule.title,
+                                        city: detailSchedule.city,
+                                        type: detailSchedule.type,
+                                        memo: detailSchedule.memo,
+                                        is_completed: detailSchedule.isCompleted,
+                                    }] : [],
+                                    "개별 일정 상세"
+                                )}
+                            />
                             <Button
                                 variant="outline"
                                 onClick={() => {
@@ -826,6 +971,12 @@ export default function SchedulePage() {
                     }
                 }}
             />
+            <AIScheduleGenerator
+                open={aiGeneratorOpen}
+                onOpenChange={setAiGeneratorOpen}
+                onScheduleImported={fetchSchedules}
+            />
+            <ToastContainer toasts={toast.toasts} onClose={toast.removeToast} />
         </div>
     );
 }

@@ -1,17 +1,11 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { db, Trip } from "@/lib/db";
+import { runDateNormalizationMigration } from "@/lib/dateMigration";
 
-interface Trip {
-    id: string;
-    title: string;
-    start_date: string;
-    end_date: string;
-    family_count?: number;
-    cities?: string;
-    created_at?: string;
-}
+// Dexie db.ts의 Trip 인터페이스를 직접 활용하므로 기존 인터페이스는 삭제하거나 상속할 수 있습니다.
+// 여기서는 `import { Trip }`을 사용합니다.
 
 interface TripContextType {
     selectedTripId: string | null;
@@ -42,33 +36,22 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
     // trip 목록 조회
     const fetchTrips = useCallback(async () => {
-        console.log("fetchTrips 호출됨");
+        console.log("fetchTrips 호출됨 (LocalDB)");
         try {
-            console.log("Supabase에서 trip 목록 조회 시작");
-            const { data, error } = await supabase
-                .from("trips")
-                .select("*")
-                .order("created_at", { ascending: false });
+            console.log("Dexie에서 trip 목록 조회 시작");
+            const data = await db.trips.orderBy("created_at").reverse().toArray();
 
-            console.log("Supabase 조회 결과:", { data: data?.length || 0, error });
+            console.log("Dexie 조회 결과:", data.length, "개");
 
-            if (error) {
-                console.error("Error fetching trips:", error);
-                setLoading(false);
-                return;
-            }
-
-            if (data) {
-                // trip 목록 업데이트 (기존 목록을 새 목록으로 교체)
+            if (data && data.length > 0) {
+                // trip 목록 업데이트
                 console.log("Trip 목록 업데이트:", data.length, "개", data.map(t => t.title));
                 setTrips(data);
             } else {
-                // 데이터가 없으면 빈 배열로 설정
-                console.log("Trip 데이터 없음, 빈 배열로 설정");
                 setTrips([]);
             }
         } catch (err) {
-            console.error("Failed to fetch trips:", err);
+            console.error("Failed to fetch trips from Dexie:", err);
         } finally {
             setLoading(false);
         }
@@ -76,36 +59,34 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
 
     // trip 목록이 로드되면 선택된 trip 설정
     useEffect(() => {
-        if (trips.length === 0) return;
-        
-        const currentSelectedId = selectedTripId || localStorage.getItem(STORAGE_KEY);
-        
-        // 이미 선택된 trip이 있고 목록에 존재하면 유지 (재설정 방지)
-        if (selectedTrip && trips.find(t => t.id === selectedTrip.id)) {
-            return; // 이미 올바른 trip이 선택되어 있음
+        // trips가 비어있다면 selection을 모두 초기화한다 (모든 trip 삭제 시).
+        if (trips.length === 0) {
+            if (selectedTrip !== null) setSelectedTrip(null);
+            if (selectedTripId !== null) setSelectedTripIdState(null);
+            // 다음 trip 생성 시 새 id가 저장되므로 STORAGE_KEY는 굳이 비우지 않는다.
+            return;
         }
-        
-        // 선택된 trip ID가 있으면 해당 trip 찾기
+
+        const currentSelectedId = selectedTripId || localStorage.getItem(STORAGE_KEY);
+
         if (currentSelectedId) {
             const trip = trips.find(t => t.id === currentSelectedId);
             if (trip) {
-                // 선택된 trip 업데이트
+                // settings에서 cities 같은 필드가 바뀌었을 수 있으므로 trip 객체는 항상 최신 값으로 동기화.
                 setSelectedTrip(trip);
-                if (!selectedTripId) {
-                    setSelectedTripIdState(currentSelectedId);
-                }
+                if (!selectedTripId) setSelectedTripIdState(currentSelectedId);
                 localStorage.setItem(STORAGE_KEY, currentSelectedId);
                 return;
             }
+            // 저장된 id가 더 이상 유효하지 않다 → localStorage 정리 후 첫 trip 폴백.
+            localStorage.removeItem(STORAGE_KEY);
         }
-        
-        // 저장된 trip_id가 없거나 유효하지 않으면 첫 번째 trip 선택 (초기 로드 시에만)
-        if (trips.length > 0 && !selectedTrip && !selectedTripId && !localStorage.getItem(STORAGE_KEY)) {
-            const firstTrip = trips[0];
-            setSelectedTripIdState(firstTrip.id);
-            setSelectedTrip(firstTrip);
-            localStorage.setItem(STORAGE_KEY, firstTrip.id);
-        }
+
+        // 저장된 id가 없거나 무효이면 첫 trip을 선택한다.
+        const firstTrip = trips[0];
+        setSelectedTripIdState(firstTrip.id);
+        setSelectedTrip(firstTrip);
+        localStorage.setItem(STORAGE_KEY, firstTrip.id);
     }, [trips]); // trips만 의존성으로 사용
 
     // 선택된 trip_id 변경 시 trip 정보 업데이트
@@ -127,15 +108,30 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         if (trip) {
             setSelectedTrip(trip);
             localStorage.setItem(STORAGE_KEY, selectedTripId);
-        } else if (trips.length > 0) {
-            // 선택된 trip_id에 해당하는 trip이 목록에 없으면 목록 새로고침
-            fetchTrips();
+            return;
+        }
+
+        // trips 자체가 아직 비어있는 초기 로드 시점에는 위 effect가 처리하므로 그냥 둔다.
+        // 이미 trips에 데이터가 있는데도 못 찾는다면 무효 id이므로 정리한다.
+        if (trips.length > 0) {
+            localStorage.removeItem(STORAGE_KEY);
+            const firstTrip = trips[0];
+            setSelectedTripIdState(firstTrip.id);
+            setSelectedTrip(firstTrip);
+            localStorage.setItem(STORAGE_KEY, firstTrip.id);
         }
     }, [selectedTripId]); // selectedTripId만 의존성으로 사용
 
-    // 초기 로드
+    // 초기 로드 (옛 datetime 형식의 날짜를 YYYY-MM-DD로 1회 정규화 후 trip 목록 조회)
     useEffect(() => {
-        fetchTrips();
+        let cancelled = false;
+        (async () => {
+            await runDateNormalizationMigration();
+            if (!cancelled) await fetchTrips();
+        })();
+        return () => {
+            cancelled = true;
+        };
     }, [fetchTrips]);
 
     const setSelectedTripId = useCallback((tripId: string | null) => {

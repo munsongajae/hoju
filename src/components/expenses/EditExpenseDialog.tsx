@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -20,9 +20,10 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Trash2, Calendar, ExternalLink } from "lucide-react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
 import { ExpenseCategory, ExpenseData } from "./ExpenseList";
 import { useTrip } from "@/contexts/TripContext";
+import { formatLocalDateYYYYMMDD, parseIsoToLocalDate } from "@/lib/localDate";
 
 const CURRENCIES = [
   { code: "KRW", name: "대한민국 원", flag: "🇰🇷" },
@@ -105,30 +106,35 @@ export function EditExpenseDialog({
     const [schedules, setSchedules] = useState<{ id: string; title: string; day_number: number }[]>([]);
     const [selectedScheduleId, setSelectedScheduleId] = useState<string>("none");
 
+    const parsedCities = useMemo(() => {
+        return selectedTrip?.cities
+            ? selectedTrip.cities.split(',').map(c => c.trim()).filter(Boolean)
+            : ["시드니", "멜버른"];
+    }, [selectedTrip?.cities]);
+
     useEffect(() => {
         if (expense) {
-            setDate(expense.date.toISOString().split('T')[0]);
+            setDate(formatLocalDateYYYYMMDD(expense.date));
             setAmount(String(expense.amount));
             setTitle(expense.title);
             setCategory(expense.category);
-            setCity(expense.city || "시드니");
+            setCity(expense.city || parsedCities[0] || "시드니");
             setCurrency(expense.currency || 'AUD');
             setSelectedScheduleId(expense.scheduleId || "none");
         }
-    }, [expense]);
+    }, [expense, parsedCities]);
 
     useEffect(() => {
         if (open && selectedTripId) {
             const fetchSchedules = async () => {
-                const { data } = await supabase
-                    .from("schedules")
-                    .select("id, title, day_number")
-                    .eq("trip_id", selectedTripId)
-                    .order("day_number", { ascending: true })
-                    .order("start_time", { ascending: true });
+                const data = await db.schedules
+                    .where("trip_id")
+                    .equals(selectedTripId)
+                    .toArray();
 
                 if (data) {
-                    setSchedules(data);
+                    data.sort((a,b) => (a.day_number - b.day_number) || (a.start_time || "").localeCompare(b.start_time || ""));
+                    setSchedules(data as any);
                 }
             };
             fetchSchedules();
@@ -141,20 +147,15 @@ export function EditExpenseDialog({
         setLoading(true);
 
         try {
-            const { error } = await supabase
-                .from("expenses")
-                .update({
-                    date: new Date(date).toISOString(),
-                    amount: parseFloat(amount),
-                    title,
-                    category,
-                    city,
-                    currency,
-                    schedule_id: selectedScheduleId === "none" ? null : selectedScheduleId
-                })
-                .eq('id', expense.id);
-
-            if (error) throw error;
+            await db.expenses.update(expense.id, {
+                date: date,
+                amount: parseFloat(amount),
+                title,
+                category,
+                city,
+                currency,
+                schedule_id: selectedScheduleId === "none" ? undefined : selectedScheduleId
+            });
 
             onOpenChange(false);
             onExpenseUpdated();
@@ -172,12 +173,7 @@ export function EditExpenseDialog({
 
         setDeleting(true);
         try {
-            const { error } = await supabase
-                .from("expenses")
-                .delete()
-                .eq('id', expense.id);
-
-            if (error) throw error;
+            await db.expenses.delete(expense.id);
 
             onOpenChange(false);
             onExpenseUpdated();
@@ -244,8 +240,9 @@ export function EditExpenseDialog({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="시드니">시드니</SelectItem>
-                                <SelectItem value="멜버른">멜버른</SelectItem>
+                                {parsedCities.map(c => (
+                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -289,9 +286,9 @@ export function EditExpenseDialog({
                                 {schedules.map((schedule) => {
                                     let dateStr = "";
                                     if (selectedTrip?.start_date && schedule.day_number) {
-                                        const date = new Date(selectedTrip.start_date);
-                                        date.setDate(date.getDate() + (schedule.day_number - 1));
-                                        dateStr = date.toISOString().slice(5, 10);
+                                        const base = parseIsoToLocalDate(selectedTrip.start_date);
+                                        base.setDate(base.getDate() + (schedule.day_number - 1));
+                                        dateStr = formatLocalDateYYYYMMDD(base).slice(5);
                                     }
                                     return (
                                         <SelectItem key={schedule.id} value={schedule.id}>

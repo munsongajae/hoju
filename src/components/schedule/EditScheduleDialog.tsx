@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -20,7 +20,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Trash2, Plus, Search, X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
 import { ScheduleType, ScheduleItemData } from "./ScheduleList";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { ExpenseData, ExpenseCategory } from "@/components/expenses/ExpenseList";
@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { CalendarIcon } from "lucide-react";
+import { parseIsoToLocalDate, parseStoredDateToLocal, todayLocalDateYYYYMMDD } from "@/lib/localDate";
 
 interface EditScheduleDialogProps {
     schedule: ScheduleItemData | null;
@@ -84,15 +85,21 @@ export function EditScheduleDialog({
     const [loadingExpenses, setLoadingExpenses] = useState(false);
 
     // Fetch Trip Start Date
-    const { selectedTrip } = useTrip();
+    const { selectedTrip, selectedTripId } = useTrip();
     useEffect(() => {
         if (open && selectedTrip && selectedTrip.start_date) {
-            setTripStartDate(new Date(selectedTrip.start_date));
+            setTripStartDate(parseIsoToLocalDate(selectedTrip.start_date));
         }
     }, [open, selectedTrip]);
 
     // Fetch places when dialog opens or city changes
-    const { selectedTripId } = useTrip();
+
+    const parsedCities = useMemo(() => {
+        return selectedTrip?.cities
+            ? selectedTrip.cities.split(',').map(c => c.trim()).filter(Boolean)
+            : ["시드니", "멜버른"];
+    }, [selectedTrip?.cities]);
+
     useEffect(() => {
         if (open && selectedTripId) {
             fetchPlaces();
@@ -102,20 +109,17 @@ export function EditScheduleDialog({
     const fetchPlaces = async () => {
         if (!selectedTripId) return;
         try {
-            const { data, error } = await supabase
-                .from("places")
-                .select("id, name")
-                .eq("trip_id", selectedTripId)
-                .eq("city", city)
-                .order("name");
+            const data = await db.places
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
 
-            if (error) {
-                console.error("Error fetching places:", error);
-                return;
-            }
+            const filteredData = data
+                .filter(p => p.city === city)
+                .sort((a, b) => a.name.localeCompare(b.name));
 
-            if (data) {
-                setPlaces(data);
+            if (filteredData) {
+                setPlaces(filteredData.map(p => ({ id: p.id, name: p.name })));
             }
         } catch (err) {
             console.error("Failed to fetch places:", err);
@@ -126,7 +130,7 @@ export function EditScheduleDialog({
     useEffect(() => {
         if (schedule) {
             setDay(String(schedule.day));
-            setCity(schedule.city);
+            setCity(schedule.city || parsedCities[0] || "시드니");
             setTitle(schedule.title);
             setType(schedule.type);
             setMemo(schedule.memo || "");
@@ -161,21 +165,17 @@ export function EditScheduleDialog({
     const fetchLinkedExpenses = async (scheduleId: string) => {
         setLoadingExpenses(true);
         try {
-            const { data, error } = await supabase
-                .from("expenses")
-                .select("*")
-                .eq("schedule_id", scheduleId)
-                .order("date", { ascending: false });
+            const data = await db.expenses
+                .where("schedule_id")
+                .equals(scheduleId)
+                .toArray();
 
-            if (error) {
-                console.error("Error fetching linked expenses:", error);
-                return;
-            }
+            data.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             if (data) {
                 const formattedData: ExpenseData[] = data.map((item: any) => ({
                     id: item.id,
-                    date: new Date(item.date),
+                    date: parseStoredDateToLocal(item.date),
                     amount: item.amount,
                     category: item.category as ExpenseCategory,
                     title: item.title,
@@ -217,20 +217,15 @@ export function EditScheduleDialog({
         setLoading(true);
 
         try {
-            const { error } = await supabase
-                .from("schedules")
-                .update({
-                    day_number: parseInt(day),
-                    city,
-                    start_time: startTime,
-                    title,
-                    type,
-                    memo,
-                    place_id: placeId === "none" ? null : placeId,
-                })
-                .eq('id', schedule.id);
-
-            if (error) throw error;
+            await db.schedules.update(schedule.id, {
+                day_number: parseInt(day),
+                city,
+                start_time: startTime,
+                title,
+                type,
+                memo,
+                place_id: placeId === "none" ? undefined : placeId,
+            });
 
             onOpenChange(false);
             onScheduleUpdated();
@@ -248,12 +243,7 @@ export function EditScheduleDialog({
 
         setDeleting(true);
         try {
-            const { error } = await supabase
-                .from("schedules")
-                .delete()
-                .eq('id', schedule.id);
-
-            if (error) throw error;
+            await db.schedules.delete(schedule.id);
 
             onOpenChange(false);
             onScheduleUpdated();
@@ -329,8 +319,9 @@ export function EditScheduleDialog({
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="시드니">시드니</SelectItem>
-                                        <SelectItem value="멜버른">멜버른</SelectItem>
+                                        {parsedCities.map(c => (
+                                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -524,7 +515,7 @@ export function EditScheduleDialog({
                                     }
                                     initialData={{
                                         title,
-                                        date: new Date().toISOString().split('T')[0], // Default to today
+                                        date: todayLocalDateYYYYMMDD(), // Default to today (local)
                                         category: mapToExpenseCategory(type),
                                         city,
                                         scheduleId: schedule?.id // 일정과 연동
@@ -542,6 +533,8 @@ export function EditScheduleDialog({
                                 </Button>
                             </div>
                         </DialogFooter>
+                        {/* Ad 배너(네이티브 오버레이) 겹침 방지용 하단 여백 */}
+                        <div className="h-[60px] flex-shrink-0" />
                     </form>
                 </div>
             </DialogContent>

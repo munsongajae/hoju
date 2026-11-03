@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeftRight } from "lucide-react";
+import { Loader2, ArrowLeftRight, WifiOff } from "lucide-react";
+import { fetchExchangeRate } from "@/lib/exchangeRate";
 import {
   Select,
   SelectContent,
@@ -67,47 +69,56 @@ const CURRENCIES = [
 ];
 
 export function ExchangeRateCalculator() {
-  const [fromCurrency, setFromCurrency] = useState("AUD");
+  const { t } = useTranslation();
+  const [fromCurrency, setFromCurrency] = useState("USD");
   const [toCurrency, setToCurrency] = useState("KRW");
   const [amount, setAmount] = useState("1");
   const [rate, setRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  // error: 결과를 표시할 수 없을 때만 사용 (rate 미존재).
+  // staleNotice: 결과는 보여주되 보조 안내가 필요한 경우.
   const [error, setError] = useState<string | null>(null);
+  const [staleNotice, setStaleNotice] = useState<string | null>(null);
 
-  // 환율 조회
   const fetchRate = async (currency: string) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/api/exchange-rate?currency=${currency}`);
-      if (!response.ok) {
-        throw new Error("환율 조회 실패");
+      setStaleNotice(null);
+      const result = await fetchExchangeRate(currency);
+      if (!result) {
+        setError(t("dashboard.exchange.calculator.unavailable"));
+        return null;
       }
-      const data = await response.json();
-      return data.rate;
+      if (result.isStale) {
+        // stale 캐시는 결과 표시를 가리지 않고, 별도의 노란 안내로만 알린다.
+        setStaleNotice(t("dashboard.exchange.calculator.staleNotice"));
+      }
+      return result.rate;
     } catch (err) {
       console.error("환율 조회 오류:", err);
-      throw err;
+      setError(t("dashboard.exchange.calculator.fetchFailed"));
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
-  // 환율 로드
   useEffect(() => {
     if (fromCurrency !== "KRW") {
-      // 외화 -> KRW
-      fetchRate(fromCurrency)
-        .then((fetchedRate) => setRate(fetchedRate))
-        .catch(() => setError("환율을 불러올 수 없습니다."));
+      fetchRate(fromCurrency).then((fetchedRate) => {
+        setRate(fetchedRate ?? null);
+      });
     } else if (toCurrency !== "KRW") {
-      // KRW -> 외화: toCurrency의 환율 필요
-      fetchRate(toCurrency)
-        .then((fetchedRate) => setRate(fetchedRate))
-        .catch(() => setError("환율을 불러올 수 없습니다."));
+      fetchRate(toCurrency).then((fetchedRate) => {
+        setRate(fetchedRate ?? null);
+      });
     } else {
       setRate(null);
+      setError(null);
+      setStaleNotice(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromCurrency, toCurrency]);
 
   // 계산
@@ -148,11 +159,11 @@ export function ExchangeRateCalculator() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
-          💱 환율 계산기
+          💱 {t("dashboard.exchange.calculator.title")}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* 환율 정보 */}
+        {/* 환율 정보 (rate가 있을 때 항상 표시; stale이면 안내를 함께 노출) */}
         {rate && (
           <div className="text-sm text-muted-foreground">
             {fromCurrency === "KRW" ? (
@@ -163,6 +174,12 @@ export function ExchangeRateCalculator() {
               <>
                 1 {fromCurrency} = {rate.toLocaleString("ko-KR", { maximumFractionDigits: 2 })} 원
               </>
+            )}
+            {staleNotice && (
+              <span className="ml-2 inline-flex items-center gap-1 text-amber-600 text-xs text-balance">
+                <WifiOff className="w-3 h-3" />
+                {staleNotice}
+              </span>
             )}
           </div>
         )}
@@ -241,17 +258,17 @@ export function ExchangeRateCalculator() {
             </Button>
           </div>
 
-          {/* 결과 */}
+          {/* 결과: rate가 있으면 결과 표시, 없을 때만 error/placeholder 표시 */}
           <div className="flex items-center gap-2 p-3 bg-zinc-100 dark:bg-zinc-900 rounded-lg">
             <div className="flex-1 text-right">
-              {loading ? (
+              {loading && rate === null ? (
                 <Loader2 className="w-4 h-4 animate-spin inline" />
-              ) : error ? (
-                <span className="text-sm text-destructive">{error}</span>
               ) : result !== null ? (
                 <span className="text-lg font-semibold">
                   {result.toLocaleString("ko-KR", { maximumFractionDigits: 2 })}
                 </span>
+              ) : error ? (
+                <span className="text-sm text-destructive">{error}</span>
               ) : (
                 <span className="text-sm text-muted-foreground">-</span>
               )}

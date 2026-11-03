@@ -30,7 +30,8 @@ export function CategoryFilter({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+            {/* 한 줄로 유지하고 가로 스크롤로 공간 활용 */}
+            <div className="flex gap-2 overflow-x-auto whitespace-nowrap w-full">
                 <Button
                     variant={selectedCategory === "all" ? "secondary" : "outline"}
                     size="sm"

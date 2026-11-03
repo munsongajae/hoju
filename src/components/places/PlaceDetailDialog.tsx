@@ -14,7 +14,7 @@ import { ExternalLink, Star, Baby, MapPin, Pencil, Plus, Clock, Phone, Globe, Ma
 import Link from "next/link";
 import { PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
 import { AddScheduleDialog } from "@/components/schedule/AddScheduleDialog";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
 
 interface PlaceDetailDialogProps {
     place: PlaceData | null;
@@ -47,13 +47,8 @@ export function PlaceDetailDialog({ place, open, onOpenChange, onEdit }: PlaceDe
     // 장소 상세 다이얼로그가 열릴 때 방문 횟수 증가
     useEffect(() => {
         if (place && open) {
-            supabase
-                .from('places')
-                .update({ visit_count: (place.visitCount || 0) + 1 })
-                .eq('id', place.id)
-                .then(() => {
-                    // 방문 횟수 업데이트는 백그라운드에서 처리
-                });
+            db.places.update(place.id, { visit_count: (place.visitCount || 0) + 1 })
+                .catch(err => console.error("Error updating visit count:", err));
         }
     }, [place, open]);
 

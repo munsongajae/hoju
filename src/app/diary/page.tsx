@@ -18,13 +18,19 @@ import {
 import { Plus, Loader2, Edit, Calendar as CalendarIcon, Trash2, Filter, Image as ImageIcon, X, ChevronLeft, ChevronRight, Maximize2, ChevronDown, Sun, Cloud, CloudRain, CloudSnow, Share2 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { supabase } from "@/lib/supabase";
-import { format, parseISO, differenceInDays } from "date-fns";
+import { ShareButton } from "@/components/ui/share-button";
+import { db, generateId } from "@/lib/db";
+import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useTrip } from "@/contexts/TripContext";
 import { ScheduleItemData } from "@/components/schedule/ScheduleList";
 import { ExpenseData } from "@/components/expenses/ExpenseList";
 import { DollarSign, MapPin, Receipt, Clock } from "lucide-react";
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
+import { useTranslation } from "react-i18next";
+import { formatLocalDateYYYYMMDD, parseIsoToLocalDate, parseStoredDateToLocal } from "@/lib/localDate";
+import { getTripRelativeDayNumber } from "@/lib/tripDay";
 
 interface DiaryEntry {
     id: string;
@@ -34,6 +40,7 @@ interface DiaryEntry {
     content: string;
     weather?: string;
     image_urls?: string[] | null;
+    raw_image_paths?: string[] | null;
 }
 
 // 피드 이미지 캐러셀 컴포넌트
@@ -158,10 +165,10 @@ function FeedImageCarousel({
 }
 
 const WEATHERS = [
-    { value: "sunny", label: "맑음", icon: Sun, color: "bg-orange-100 text-orange-600" },
-    { value: "cloudy", label: "흐림", icon: Cloud, color: "bg-gray-100 text-gray-600" },
-    { value: "rainy", label: "비", icon: CloudRain, color: "bg-blue-100 text-blue-600" },
-    { value: "snowy", label: "눈", icon: CloudSnow, color: "bg-cyan-100 text-cyan-600" },
+    { value: "sunny", label: "diary.weather.sunny", icon: Sun, color: "bg-orange-100 text-orange-600" },
+    { value: "cloudy", label: "diary.weather.cloudy", icon: Cloud, color: "bg-gray-100 text-gray-600" },
+    { value: "rainy", label: "diary.weather.rainy", icon: CloudRain, color: "bg-blue-100 text-blue-600" },
+    { value: "snowy", label: "diary.weather.snowy", icon: CloudSnow, color: "bg-cyan-100 text-cyan-600" },
 ];
 
 export default function DiaryPage() {
@@ -172,6 +179,7 @@ export default function DiaryPage() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [tripStartDate, setTripStartDate] = useState<Date | null>(null);
     const { selectedTripId, selectedTrip } = useTrip();
+    const { t } = useTranslation();
 
     // 필터 상태
     const [dateRangeStart, setDateRangeStart] = useState("");
@@ -186,6 +194,7 @@ export default function DiaryPage() {
     const [formWeather, setFormWeather] = useState<string>("sunny");
     const [formImages, setFormImages] = useState<File[]>([]);
     const [formImageUrls, setFormImageUrls] = useState<string[]>([]);
+    const [formImagePaths, setFormImagePaths] = useState<string[]>([]);
     const [uploadingImages, setUploadingImages] = useState(false);
 
     // 상세 보기 및 이미지 뷰어 상태
@@ -209,11 +218,18 @@ export default function DiaryPage() {
     // ExpenseData is in components/expenses/ExpenseList.
 
     useEffect(() => {
-        if (selectedTrip) {
-            setTripStartDate(parseISO(selectedTrip.start_date));
-            loadData();
+        if (!selectedTripId || !selectedTrip) {
+            setEntries([]);
+            setSchedules([]);
+            setExpenses([]);
+            setTripStartDate(null);
+            setLoading(false);
+            return;
         }
-    }, [selectedTrip]);
+
+        setTripStartDate(parseIsoToLocalDate(selectedTrip.start_date));
+        loadData();
+    }, [selectedTripId, selectedTrip]);
 
     // 키보드 이벤트 (이미지 뷰어에서 좌우 화살표 키로 이미지 이동)
     useEffect(() => {
@@ -239,61 +255,98 @@ export default function DiaryPage() {
         try {
             setLoading(true);
 
-            // Promise.all for parallel fetching
-            const [diaryResult, scheduleResult, expenseResult] = await Promise.all([
-                supabase
-                    .from("diaries")
-                    .select("*")
-                    .order("date", { ascending: false }),
-                supabase
-                    .from("schedules")
-                    .select("*, place:places(name)")
-                    .eq("trip_id", selectedTripId)
-                    .order("start_time", { ascending: true }),
-                supabase
-                    .from("expenses")
-                    .select("*")
-                    .eq("trip_id", selectedTripId)
-                    .order("date", { ascending: false })
-            ]);
+            // 1. Fetch Diaries
+            const diariesData = await db.diaries
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
+            diariesData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-            if (diaryResult.error) console.error("Error loading diaries:", diaryResult.error);
-            if (scheduleResult.error) console.error("Error loading schedules:", scheduleResult.error);
-            if (expenseResult.error) console.error("Error loading expenses:", expenseResult.error);
+            // 2. Fetch Schedules
+            const schedulesData = await db.schedules
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
+            schedulesData.sort((a,b) => (a.start_time || "").localeCompare(b.start_time || ""));
 
-            if (diaryResult.data) {
-                // Ensure diary date is also string YYYY-MM-DD
-                const formattedDiaries = diaryResult.data.map((d: any) => ({
-                    ...d,
-                    date: typeof d.date === 'string' ? d.date.split('T')[0] : d.date
-                }));
-                setEntries(formattedDiaries);
+            const placeIds = schedulesData.map(s => s.place_id).filter(Boolean) as string[];
+            const placesData = await db.places.where("id").anyOf(placeIds).toArray();
+            const placeMap = new Map(placesData.map(p => [p.id, p]));
+
+            // 3. Fetch Expenses
+            const expensesData = await db.expenses
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
+            expensesData.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+            if (diariesData) {
+                const formattedDiariesPromises = diariesData.map(async (d: any) => {
+                    let resolvedImages = [];
+                    if (d.images && d.images.length > 0) {
+                        resolvedImages = await Promise.all(
+                            d.images.map(async (imgPath: string) => {
+                                if (imgPath.startsWith('data:') || imgPath.startsWith('http')) {
+                                    return imgPath;
+                                }
+                                try {
+                                    if (Capacitor.isNativePlatform()) {
+                                        const fileInfo = await Filesystem.getUri({
+                                            directory: Directory.Data,
+                                            path: imgPath
+                                        });
+                                        return Capacitor.convertFileSrc(fileInfo.uri);
+                                    } else {
+                                        const fileData = await Filesystem.readFile({
+                                            directory: Directory.Data,
+                                            path: imgPath
+                                        });
+                                        return `data:image/webp;base64,${fileData.data}`;
+                                    }
+                                } catch (e) {
+                                    console.error("Failed to resolve image path", imgPath, e);
+                                    return imgPath;
+                                }
+                            })
+                        );
+                    }
+                    return {
+                        ...d,
+                        date: typeof d.date === 'string'
+                            ? formatLocalDateYYYYMMDD(parseStoredDateToLocal(d.date))
+                            : d.date,
+                        image_urls: resolvedImages,
+                        raw_image_paths: d.images
+                    };
+                });
+                const formattedDiaries = await Promise.all(formattedDiariesPromises);
+                setEntries(formattedDiaries as DiaryEntry[]);
             }
-            if (scheduleResult.data) {
-                // Transform schedule data to match UI expectations if needed, 
-                // but for now raw data might be enough or simple mapping
-                // Let's map to ScheduleItemData-like structure
-                const formattedSchedules = scheduleResult.data.map((item: any) => ({
-                    id: item.id,
-                    day: item.day_number,
-                    title: item.title,
-                    time: item.start_time?.substring(0, 5) || "",
-                    placeName: item.place?.name,
-                    isCompleted: item.is_completed
-                }));
+            if (schedulesData) {
+                const formattedSchedules = schedulesData.map((item: any) => {
+                    const place = item.place_id ? placeMap.get(item.place_id) : null;
+                    return {
+                        id: item.id,
+                        day: item.day_number,
+                        title: item.title,
+                        time: item.start_time?.substring(0, 5) || "",
+                        placeName: place?.name,
+                        isCompleted: item.is_completed
+                    };
+                });
                 setSchedules(formattedSchedules);
             }
-            if (expenseResult.data) {
-                const formattedExpenses = expenseResult.data.map((item: any) => ({
+            if (expensesData) {
+                const formattedExpenses = expensesData.map((item: any) => ({
                     id: item.id,
-                    // Fix: Use string split to correctly extract YYYY-MM-DD regardless of time/timezone
-                    date: typeof item.date === 'string' ? item.date.split('T')[0] : "",
+                    date: typeof item.date === 'string'
+                        ? formatLocalDateYYYYMMDD(parseStoredDateToLocal(item.date))
+                        : "",
                     title: item.title,
                     amount: item.amount,
                     currency: item.currency,
                     category: item.category
                 }));
-                // console.log("Loaded Expenses:", formattedExpenses.length, formattedExpenses[0]); // Debug log
                 setExpenses(formattedExpenses);
             }
 
@@ -312,6 +365,7 @@ export default function DiaryPage() {
         setFormWeather("sunny");
         setFormImages([]);
         setFormImageUrls([]);
+        setFormImagePaths([]);
         setDialogOpen(true);
     }
 
@@ -328,6 +382,7 @@ export default function DiaryPage() {
         setFormWeather(entry.weather || "sunny");
         setFormImages([]);
         setFormImageUrls(entry.image_urls || []);
+        setFormImagePaths(entry.raw_image_paths || (entry.image_urls || []));
         setDialogOpen(true);
         setDetailDialogOpen(false); // 상세 보기 닫기
     }
@@ -430,12 +485,11 @@ export default function DiaryPage() {
         });
     }
 
-    // 이미지 업로드
     const uploadImages = async (files: File[]): Promise<string[]> => {
         if (files.length === 0) return [];
 
         setUploadingImages(true);
-        const uploadedUrls: string[] = [];
+        const uploadedPaths: string[] = [];
 
         try {
             for (const file of files) {
@@ -449,32 +503,24 @@ export default function DiaryPage() {
                         // 리사이징 실패 시 원본 파일 사용
                     }
                 }
-
-                const fileExt = fileToUpload.name.split('.').pop();
-                const timestamp = Date.now();
-                const randomStr = Math.random().toString(36).substring(7);
-                const fileName = `${selectedTripId}/${timestamp}-${randomStr}.${fileExt}`;
-                const filePath = fileName;
-
-                const { error: uploadError } = await supabase.storage
-                    .from('diary-images')
-                    .upload(filePath, fileToUpload, {
-                        cacheControl: '3600',
-                        upsert: false
-                    });
-
-                if (uploadError) {
-                    console.error('Error uploading image:', uploadError);
-                    continue;
-                }
-
-                const { data } = supabase.storage
-                    .from('diary-images')
-                    .getPublicUrl(filePath);
-
-                if (data?.publicUrl) {
-                    uploadedUrls.push(data.publicUrl);
-                }
+                const base64Url = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(fileToUpload);
+                });
+                
+                const base64Data = base64Url.split(',')[1];
+                const fileName = `diary_images/${Date.now()}_${generateId()}.webp`;
+                
+                await Filesystem.writeFile({
+                    path: fileName,
+                    data: base64Data,
+                    directory: Directory.Data,
+                    recursive: true
+                });
+                
+                uploadedPaths.push(fileName);
             }
         } catch (err) {
             console.error('Error uploading images:', err);
@@ -482,46 +528,39 @@ export default function DiaryPage() {
             setUploadingImages(false);
         }
 
-        return uploadedUrls;
+        return uploadedPaths;
     };
 
     // 이미지 삭제
-    const deleteImage = async (imageUrl: string) => {
+    const deleteImage = async (imagePath: string) => {
+        if (imagePath.startsWith('data:') || imagePath.startsWith('http')) return;
         try {
-            // URL에서 파일 경로 추출
-            // Supabase Storage URL 형식: https://[project].supabase.co/storage/v1/object/public/diary-images/[path]
-            const urlParts = imageUrl.split('/diary-images/');
-            if (urlParts.length < 2) return;
-
-            const filePath = urlParts[1].split('?')[0]; // 쿼리 파라미터 제거
-            const { error } = await supabase.storage
-                .from('diary-images')
-                .remove([filePath]);
-
-            if (error) {
-                console.error('Error deleting image:', error);
-            }
-        } catch (err) {
-            console.error('Error deleting image:', err);
+            await Filesystem.deleteFile({
+                path: imagePath,
+                directory: Directory.Data
+            });
+        } catch (e) {
+            console.error("Failed to delete image", imagePath, e);
         }
     };
 
     async function handleSave() {
-        if (!selectedTripId || !tripStartDate) return;
+        if (!selectedTripId || !tripStartDate) {
+            alert(t("settings.alert.selectTrip"));
+            return;
+        }
 
         setSaving(true);
         try {
             // 새로 선택한 이미지 업로드
-            const newImageUrls = await uploadImages(formImages);
-            const allImageUrls = [...formImageUrls, ...newImageUrls];
+            const newImagePaths = await uploadImages(formImages);
+            const allImagePaths = [...formImagePaths, ...newImagePaths];
 
             // formImages 초기화 (업로드 완료 후)
             setFormImages([]);
 
-            const entryDate = parseISO(formDate);
-            const diffDays = differenceInDays(entryDate, tripStartDate);
-            // Consistent logic: Day 1 = Start Date. Day 0 = 1 day before.
-            const dayNum = diffDays + 1;
+            const entryDate = parseIsoToLocalDate(formDate);
+            const dayNum = getTripRelativeDayNumber(entryDate, tripStartDate);
 
             // Title generation logic
             let defaultTitle = "";
@@ -531,35 +570,28 @@ export default function DiaryPage() {
                 defaultTitle = `D-${Math.abs(dayNum - 1)} 준비 일기`;
             }
 
-            const diaryData = {
+            const diaryData: any = {
                 trip_id: selectedTripId,
                 day_number: dayNum,
                 date: formDate,
                 title: formTitle || defaultTitle,
                 content: formContent,
                 weather: formWeather,
-                image_urls: allImageUrls.length > 0 ? allImageUrls : null,
+                images: allImagePaths.length > 0 ? allImagePaths : undefined,
                 updated_at: new Date().toISOString(),
             };
 
             if (editingId) {
-                const { error } = await supabase
-                    .from("diaries")
-                    .update(diaryData)
-                    .eq("id", editingId);
-                if (error) throw error;
+                await db.diaries.update(editingId, diaryData);
             } else {
-                const { error } = await supabase
-                    .from("diaries")
-                    .insert([diaryData]);
-                if (error) throw error;
+                await db.diaries.add({ ...diaryData, id: generateId(), created_at: new Date().toISOString() });
             }
 
             setDialogOpen(false);
             loadData();
         } catch (err: any) {
             console.error("Failed to save diary:", err);
-            alert(`저장 실패: ${err?.message || JSON.stringify(err) || "알 수 없는 오류"}`);
+            alert(t("diary.alert.saveFail", { message: err?.message || JSON.stringify(err) || t("common.unknownError") }));
         } finally {
             setSaving(false);
             setUploadingImages(false);
@@ -569,31 +601,25 @@ export default function DiaryPage() {
     async function handleDelete() {
         if (!editingId) return;
 
-        const confirmed = window.confirm("정말 이 일기를 삭제하시겠습니까?");
+        const confirmed = window.confirm(t("diary.alert.deleteConfirm"));
         if (!confirmed) return;
 
         setDeleting(true);
         try {
             // 일기와 함께 이미지도 삭제
             const entry = entries.find(e => e.id === editingId);
-            if (entry?.image_urls && entry.image_urls.length > 0) {
-                for (const imageUrl of entry.image_urls) {
-                    await deleteImage(imageUrl);
+            if (entry?.raw_image_paths && entry.raw_image_paths.length > 0) {
+                for (const imagePath of entry.raw_image_paths) {
+                    await deleteImage(imagePath);
                 }
             }
-
-            const { error } = await supabase
-                .from("diaries")
-                .delete()
-                .eq("id", editingId);
-
-            if (error) throw error;
+            await db.diaries.delete(editingId);
 
             setDialogOpen(false);
             loadData();
         } catch (err: any) {
             console.error("Failed to delete diary:", err);
-            alert(`삭제 실패: ${err?.message || "알 수 없는 오류"}`);
+            alert(t("diary.alert.deleteFail", { message: err?.message || t("common.unknownError") }));
         } finally {
             setDeleting(false);
         }
@@ -605,9 +631,9 @@ export default function DiaryPage() {
     const filteredEntries = useMemo(() => {
         return entries.filter((entry) => {
             // 날짜 범위 필터
-            const entryDate = parseISO(entry.date);
-            const startMatch = !dateRangeStart || entryDate >= parseISO(dateRangeStart);
-            const endMatch = !dateRangeEnd || entryDate <= parseISO(dateRangeEnd);
+            const entryDate = parseIsoToLocalDate(entry.date);
+            const startMatch = !dateRangeStart || entryDate >= parseIsoToLocalDate(dateRangeStart);
+            const endMatch = !dateRangeEnd || entryDate <= parseIsoToLocalDate(dateRangeEnd);
 
             return startMatch && endMatch;
         });
@@ -618,11 +644,8 @@ export default function DiaryPage() {
         // This ensures matching works even if stored day_number is inconsistent
         let targetDay = dayNumber;
         if (tripStartDate) {
-            const entryDate = parseISO(dateStr);
-            // Use local date difference to be safe? Or simple string diff?
-            // differenceInDays is safe if both are parsed correctly.
-            // But we can also rely on the fact that loadData normalizes dates.
-            targetDay = differenceInDays(entryDate, tripStartDate) + 1;
+            const entryDate = parseIsoToLocalDate(dateStr);
+            targetDay = getTripRelativeDayNumber(entryDate, tripStartDate);
         }
 
         const dailySchedules = schedules.filter(s => s.day === targetDay);
@@ -636,15 +659,13 @@ export default function DiaryPage() {
         return { dailySchedules, dailyExpenses, totalExpense };
     };
 
-    const handleShare = async () => {
-        if (!selectedEntry) return;
+    const buildDiaryShareText = (entry: DiaryEntry) => {
+        const dateStr = format(parseIsoToLocalDate(entry.date), "yyyy년 M월 d일 (EEE)", { locale: ko });
+        const dayStr = entry.day_number > 0 ? `Day ${entry.day_number}` : `D-${Math.abs(entry.day_number - 1)}`;
+        let shareText = `[여행 일기] ${entry.title}\n일자: ${dateStr} (${dayStr})\n날씨: ${t(getWeatherInfo(entry.weather || "sunny").label)}\n\n${entry.content || ""}`;
 
-        const dateStr = format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko });
-        const dayStr = selectedEntry.day_number > 0 ? `Day ${selectedEntry.day_number}` : `D-${Math.abs(selectedEntry.day_number - 1)}`;
-        let shareText = `[여행 일기] ${selectedEntry.title}\n일자: ${dateStr} (${dayStr})\n날씨: ${getWeatherInfo(selectedEntry.weather || "sunny").label}\n\n${selectedEntry.content || ""}`;
+        const { dailySchedules, dailyExpenses, totalExpense } = getDailyData(entry.day_number, entry.date);
 
-        const { dailySchedules, dailyExpenses, totalExpense } = getDailyData(selectedEntry.day_number, selectedEntry.date);
-        
         if (dailySchedules.length > 0) {
             shareText += `\n\n[이날의 일정]\n` + dailySchedules.map(s => `- ${s.time} ${s.title}${s.placeName ? ` (${s.placeName})` : ''}`).join('\n');
         }
@@ -653,24 +674,7 @@ export default function DiaryPage() {
             shareText += `\n총액: ${dailyExpenses[0]?.currency} ${totalExpense.toLocaleString()}`;
         }
 
-        if (navigator.share) {
-            try {
-                await navigator.share({
-                    title: selectedEntry.title,
-                    text: shareText,
-                });
-            } catch (err) {
-                console.error("공유 실패:", err);
-            }
-        } else {
-            try {
-                await navigator.clipboard.writeText(shareText);
-                alert("일기 내용이 클립보드에 복사되었습니다.");
-            } catch (err) {
-                console.error("복사 실패:", err);
-                alert("복사에 실패했습니다.");
-            }
-        }
+        return shareText;
     };
 
     if (loading) {
@@ -683,9 +687,9 @@ export default function DiaryPage() {
 
     return (
         <div className="p-4 pb-24 space-y-4">
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-bold">여행 일기</h1>
-                <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <h1 className="text-2xl font-bold whitespace-nowrap shrink-0">{t("diary.title")}</h1>
+                <div className="flex gap-2 self-end sm:self-auto">
                     <Button
                         variant="outline"
                         size="icon"
@@ -704,7 +708,7 @@ export default function DiaryPage() {
             {showFilters && (
                 <Card className="p-4 space-y-4">
                     <div className="space-y-2">
-                        <Label className="text-sm font-medium">날짜 범위</Label>
+                        <Label className="text-sm font-medium">{t("diary.filter.dateRange")}</Label>
                         <div className="flex gap-2">
                             <Input
                                 type="date"
@@ -730,7 +734,7 @@ export default function DiaryPage() {
                                         setDateRangeEnd("");
                                     }}
                                 >
-                                    초기화
+                                    {t("diary.filter.reset")}
                                 </Button>
                             )}
                         </div>
@@ -739,14 +743,21 @@ export default function DiaryPage() {
             )}
 
             {filteredEntries.length === 0 ? (
-                <div className="text-center py-16 text-muted-foreground">
-                    <CalendarIcon className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                    <p>조건에 맞는 일기가 없습니다.</p>
-                    <p className="text-sm">
+                <div className="flex flex-col items-center justify-center py-24 text-muted-foreground animate-in fade-in duration-500">
+                    <div className="w-24 h-24 bg-muted/50 rounded-full flex items-center justify-center mb-5">
+                        <ImageIcon className="w-12 h-12 text-muted-foreground/40" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground mb-2">{t("diary.emptyTitle")}</h3>
+                    <p className="text-sm text-center max-w-[250px]">
                         {entries.length === 0
-                            ? "오늘의 여행을 기록해보세요!"
-                            : "필터를 조정해보세요."}
+                            ? t("diary.emptyDefault")
+                            : t("diary.emptyFiltered")}
                     </p>
+                    {entries.length === 0 && (
+                        <Button onClick={openNewEntry} className="mt-6 shadow-md" variant="default">
+                            <Plus className="w-4 h-4 mr-2" />{t("diary.firstWrite")}
+                        </Button>
+                    )}
                 </div>
             ) : (
                 <div className="space-y-4">
@@ -770,7 +781,7 @@ export default function DiaryPage() {
                                                     : `D-${Math.abs(entry.day_number - 1)}`}
                                             </Badge>
                                             <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
-                                                {format(parseISO(entry.date), "M.d(EEE)", { locale: ko })}
+                                                {format(parseIsoToLocalDate(entry.date), "M.d(EEE)", { locale: ko })}
                                             </span>
                                             {/* 날씨 배지 (카드 헤더) */}
                                             {entry.weather && (
@@ -801,8 +812,11 @@ export default function DiaryPage() {
                                     />
                                 )}
 
-                                {/* 콘텐츠 */}
-                                <CardContent className="px-4 pb-2 pt-2">
+                                {/* 콘텐츠 (카드 탭 시 상세 보기로 바로 이동) */}
+                                <CardContent
+                                    className="px-4 pb-2 pt-2 cursor-pointer"
+                                    onClick={() => openDetailEntry(entry)}
+                                >
                                     <h3 className="font-semibold mb-1 text-lg">{entry.title}</h3>
                                     {entry.content && (
                                         <p
@@ -819,7 +833,7 @@ export default function DiaryPage() {
                                         }}
                                         className="mt-2 text-xs text-primary hover:underline"
                                     >
-                                        더보기...
+                                        {t("diary.more")}
                                     </button>
                                 </CardContent>
                             </Card>
@@ -842,7 +856,7 @@ export default function DiaryPage() {
                                             : `D-${Math.abs(selectedEntry.day_number - 1)}`)}
                                     </Badge>
                                     <span className="text-xs text-muted-foreground">
-                                        {selectedEntry && format(parseISO(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko })}
+                                        {selectedEntry && format(parseIsoToLocalDate(selectedEntry.date), "yyyy년 M월 d일 (EEE)", { locale: ko })}
                                     </span>
                                     {/* 날씨 배지 (상세 모달) */}
                                     {selectedEntry?.weather && (
@@ -852,7 +866,7 @@ export default function DiaryPage() {
                                                 return (
                                                     <div className="flex items-center gap-1">
                                                         <WIcon className="w-4 h-4" />
-                                                        <span>{getWeatherInfo(selectedEntry.weather).label}</span>
+                                                        <span>{t(getWeatherInfo(selectedEntry.weather).label)}</span>
                                                     </div>
                                                 );
                                             })()}
@@ -860,15 +874,15 @@ export default function DiaryPage() {
                                     )}
                                 </div>
                             </div>
-                            <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={handleShare} 
-                                className="h-8 w-8 rounded-full flex-shrink-0"
-                                aria-label="일기 공유/복사하기"
-                            >
-                                <Share2 className="w-4 h-4" />
-                            </Button>
+                            {selectedEntry && (
+                                <ShareButton
+                                    title={selectedEntry.title}
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-full flex-shrink-0"
+                                    generateText={() => buildDiaryShareText(selectedEntry)}
+                                />
+                            )}
                         </div>
                     </DialogHeader>
                     <div className="overflow-y-auto flex-1 min-h-0">
@@ -973,7 +987,16 @@ export default function DiaryPage() {
                             </div>
                         )}
                     </div>
-                    <DialogFooter className="flex-shrink-0">
+                    <DialogFooter className="flex-shrink-0 flex sm:justify-between gap-2">
+                        {selectedEntry && (
+                            <ShareButton
+                                title={selectedEntry.title}
+                                size="default"
+                                variant="secondary"
+                                className="flex-1"
+                                generateText={() => buildDiaryShareText(selectedEntry)}
+                            />
+                        )}
                         <Button
                             variant="outline"
                             onClick={() => {
@@ -982,10 +1005,10 @@ export default function DiaryPage() {
                                     openEditEntry(selectedEntry);
                                 }
                             }}
-                            className="w-full"
+                            className="flex-1"
                         >
                             <Edit className="w-4 h-4 mr-2" />
-                            수정하기
+                            {t("diary.edit")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -1036,13 +1059,13 @@ export default function DiaryPage() {
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                 <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
                     <DialogHeader className="flex-shrink-0">
-                        <DialogTitle>{editingId ? "일기 수정" : "새 일기 작성"}</DialogTitle>
+                        <DialogTitle>{editingId ? t("diary.dialog.editTitle") : t("diary.dialog.newTitle")}</DialogTitle>
                     </DialogHeader>
                     <div className="overflow-y-auto flex-1 min-h-0">
 
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label>날짜</Label>
+                                <Label>{t("diary.form.date")}</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <Button
@@ -1051,7 +1074,7 @@ export default function DiaryPage() {
                                         >
                                             <div className="flex items-center">
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {formDate ? format(parseISO(formDate), "yyyy년 MM월 dd일", { locale: ko }) : "날짜 선택"}
+                                                {formDate ? format(parseIsoToLocalDate(formDate), "yyyy년 MM월 dd일", { locale: ko }) : t("diary.form.pickDate")}
                                             </div>
                                             <ChevronDown className="h-4 w-4 opacity-50" />
                                         </Button>
@@ -1059,7 +1082,7 @@ export default function DiaryPage() {
                                     <PopoverContent className="w-auto p-0" align="start">
                                         <Calendar
                                             mode="single"
-                                            selected={formDate ? parseISO(formDate) : undefined}
+                                            selected={formDate ? parseIsoToLocalDate(formDate) : undefined}
                                             onSelect={(date) => {
                                                 if (date) {
                                                     setFormDate(format(date, "yyyy-MM-dd"));
@@ -1072,16 +1095,16 @@ export default function DiaryPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>제목</Label>
+                                <Label>{t("diary.form.title")}</Label>
                                 <Input
-                                    placeholder="오늘의 제목"
+                                    placeholder={t("diary.form.titlePlaceholder")}
                                     value={formTitle}
                                     onChange={(e) => setFormTitle(e.target.value)}
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <Label>오늘의 날씨</Label>
+                                <Label>{t("diary.form.weather")}</Label>
                                 <div className="flex flex-wrap gap-2">
                                     {WEATHERS.map(weather => {
                                         const Icon = weather.icon;
@@ -1096,7 +1119,7 @@ export default function DiaryPage() {
                                                     }`}
                                             >
                                                 <Icon className="w-4 h-4" />
-                                                {weather.label}
+                                                {t(weather.label)}
                                             </button>
                                         );
                                     })}
@@ -1104,9 +1127,9 @@ export default function DiaryPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>일기 내용</Label>
+                                <Label>{t("diary.form.content")}</Label>
                                 <Textarea
-                                    placeholder="오늘 하루를 자유롭게 기록하세요..."
+                                    placeholder={t("diary.form.contentPlaceholder")}
                                     value={formContent}
                                     onChange={(e) => setFormContent(e.target.value)}
                                     rows={6}
@@ -1115,7 +1138,7 @@ export default function DiaryPage() {
 
                             {/* 이미지 업로드 */}
                             <div className="space-y-2">
-                                <Label>사진 첨부</Label>
+                                <Label>{t("diary.form.photo")}</Label>
                                 <div className="space-y-3">
                                     {/* 기존 이미지 미리보기 */}
                                     {formImageUrls.length > 0 && (
@@ -1132,6 +1155,7 @@ export default function DiaryPage() {
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             setFormImageUrls(prev => prev.filter((_, i) => i !== index));
+                                                            setFormImagePaths(prev => prev.filter((_, i) => i !== index));
                                                         }}
                                                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                                     >
@@ -1171,7 +1195,7 @@ export default function DiaryPage() {
                                     <label className="flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
                                         <ImageIcon className="w-5 h-5 text-muted-foreground" />
                                         <span className="text-sm text-muted-foreground">
-                                            {uploadingImages ? "업로드 중..." : "사진 추가"}
+                                            {uploadingImages ? t("diary.form.uploading") : t("diary.form.addPhoto")}
                                         </span>
                                         <input
                                             type="file"
@@ -1198,19 +1222,21 @@ export default function DiaryPage() {
                                 className="w-full sm:w-auto"
                             >
                                 {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
-                                삭제
+                                {t("diary.form.delete")}
                             </Button>
                         )}
                         <div className="flex gap-2 w-full sm:w-auto">
                             <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1 sm:flex-none">
-                                취소
+                                {t("common.cancel")}
                             </Button>
                             <Button onClick={handleSave} disabled={saving || uploadingImages} className="flex-1 sm:flex-none">
                                 {(saving || uploadingImages) ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                                {uploadingImages ? "업로드 중..." : "저장"}
+                                {uploadingImages ? t("diary.form.uploading") : t("common.save")}
                             </Button>
                         </div>
                     </DialogFooter>
+                    {/* Ad 배너 영역 겹침 방지용 고정 여백 */}
+                    <div className="h-[60px] flex-shrink-0" />
                 </DialogContent>
             </Dialog>
         </div >

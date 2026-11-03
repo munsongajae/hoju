@@ -4,67 +4,82 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Calendar, MapPin, BookOpen, CreditCard, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export function MobileNav() {
     const pathname = usePathname();
+    const { t, i18n } = useTranslation();
+    const isEn = (i18n.resolvedLanguage ?? i18n.language ?? "ko").toLowerCase().startsWith("en");
 
     const navItems = [
         {
-            label: "홈",
+            label: t("nav.home"),
+            compactLabel: "Home",
             href: "/",
             icon: Home,
         },
         {
-            label: "일정",
+            label: t("nav.schedule"),
+            compactLabel: "Sched",
             href: "/schedule",
             icon: Calendar,
         },
         {
-            label: "장소",
+            label: t("nav.places"),
+            compactLabel: "Places",
             href: "/places",
             icon: MapPin,
         },
         {
-            label: "일기",
+            label: t("nav.diary"),
+            compactLabel: "Diary",
             href: "/diary",
             icon: BookOpen,
         },
         {
-            label: "지출",
+            label: t("nav.expenses"),
+            compactLabel: "Spend",
             href: "/expenses",
             icon: CreditCard,
         },
         {
-            label: "설정",
+            label: t("nav.settings"),
+            compactLabel: "Set",
             href: "/settings",
             icon: Settings,
         },
     ];
 
     return (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background pb-safe-area-inset-bottom">
-            <div className="flex items-center justify-around h-16 max-w-md mx-auto">
-                {navItems.map((item) => {
-                    const isActive = pathname === item.href;
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={cn(
-                                "flex flex-col items-center justify-center w-full h-full space-y-1",
-                                isActive
-                                    ? "text-primary font-medium"
-                                    : "text-muted-foreground hover:text-primary transition-colors"
-                            )}
-                        >
-                            <item.icon className="w-5 h-5" />
-                            <span className="text-[10px] uppercase tracking-wide">
-                                {item.label}
+        <div className="flex items-center justify-around h-16 w-full px-1">
+            {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                            "flex min-w-0 flex-1 flex-col items-center justify-center transition-colors",
+                            !isActive && "text-muted-foreground hover:text-primary"
+                        )}
+                    >
+                        <div className={cn(
+                            "flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded-xl transition-colors",
+                            isActive
+                                ? "bg-primary/10 text-primary"
+                                : "text-muted-foreground"
+                        )}>
+                            <item.icon className="w-5 h-5 shrink-0" />
+                            <span className={cn(
+                                "block text-[10px] leading-none",
+                                isActive ? "font-bold" : "font-normal"
+                            )}>
+                                {isEn ? item.compactLabel : item.label}
                             </span>
-                        </Link>
-                    );
-                })}
-            </div>
+                        </div>
+                    </Link>
+                );
+            })}
         </div>
     );
 }

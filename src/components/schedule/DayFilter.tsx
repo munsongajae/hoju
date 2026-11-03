@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 interface DayFilterProps {
     days: number;
@@ -11,6 +12,7 @@ interface DayFilterProps {
 }
 
 export function DayFilter({ days, selectedDay, onSelectDay }: DayFilterProps) {
+    const { t } = useTranslation();
     const dayArray = Array.from({ length: days }, (_, i) => i + 1);
 
     return (
@@ -22,7 +24,7 @@ export function DayFilter({ days, selectedDay, onSelectDay }: DayFilterProps) {
                     onClick={() => onSelectDay("all")}
                     className="rounded-full"
                 >
-                    전체
+                    {t("schedule.filter.all")}
                 </Button>
                 {dayArray.map((day) => (
                     <Button
@@ -32,7 +34,7 @@ export function DayFilter({ days, selectedDay, onSelectDay }: DayFilterProps) {
                         onClick={() => onSelectDay(day)}
                         className="rounded-full"
                     >
-                        Day {day}
+                        {t("schedule.dayLabel", { day })}
                     </Button>
                 ))}
             </div>

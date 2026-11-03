@@ -1,12 +1,8 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { MapPin, Star, ExternalLink, Baby, Heart } from "lucide-react";
-import Link from "next/link";
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { Card, CardContent } from "@/components/ui/card";
+import { Star, Baby } from "lucide-react";
 
 export type PlaceCategory = "tour" | "food" | "shop" | "medical" | "play" | "museum" | "market";
 
@@ -25,14 +21,11 @@ export interface PlaceData {
     websiteUrl?: string;
     address?: string;
     visitCount?: number;
-    lat?: number;
-    lng?: number;
 }
 
 interface PlaceCardProps {
     place: PlaceData;
     onClick?: () => void;
-    onFavoriteToggle?: () => void;
 }
 
 const categoryColors: Record<PlaceCategory, string> = {
@@ -55,42 +48,13 @@ const categoryLabels: Record<PlaceCategory, string> = {
     market: "시장",
 };
 
-export function PlaceCard({ place, onClick, onFavoriteToggle }: PlaceCardProps) {
-    const [isFavorite, setIsFavorite] = useState(place.isFavorite || false);
-    const [isToggling, setIsToggling] = useState(false);
-
-    const handleFavoriteClick = async (e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (isToggling) return;
-
-        setIsToggling(true);
-        const newFavoriteState = !isFavorite;
-        setIsFavorite(newFavoriteState);
-
-        try {
-            const { error } = await supabase
-                .from('places')
-                .update({ is_favorite: newFavoriteState })
-                .eq('id', place.id);
-
-            if (error) {
-                setIsFavorite(!newFavoriteState); // Revert on error
-                throw error;
-            }
-            onFavoriteToggle?.();
-        } catch (error) {
-            console.error('Error toggling favorite:', error);
-        } finally {
-            setIsToggling(false);
-        }
-    };
-
+export function PlaceCard({ place, onClick }: PlaceCardProps) {
     return (
         <Card
-            className="overflow-hidden hover:shadow-md transition-shadow cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 relative"
+            className="overflow-hidden hover:shadow-md hover:border-primary/30 transition-all cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/50 relative"
             onClick={onClick}
         >
-            <CardContent className="px-3 py-1.5 flex items-start justify-between gap-2">
+            <CardContent className="px-4 py-3 flex items-start justify-between gap-2">
                 <div className="flex items-start gap-2 flex-1">
                     <Badge variant="secondary" className={`mt-0.5 px-1.5 py-0 text-[10px] h-5 ${categoryColors[place.category]}`}>
                         {categoryLabels[place.category]}
@@ -110,16 +74,6 @@ export function PlaceCard({ place, onClick, onFavoriteToggle }: PlaceCardProps) 
                             {place.rating}
                         </div>
                     )}
-                    <button
-                        onClick={handleFavoriteClick}
-                        className={`p-1 rounded transition-colors ${isFavorite
-                                ? "text-red-500 hover:text-red-600"
-                                : "text-muted-foreground hover:text-red-500"
-                            }`}
-                        disabled={isToggling}
-                    >
-                        <Heart className={`w-4 h-4 ${isFavorite ? "fill-current" : ""}`} />
-                    </button>
                 </div>
             </CardContent>
         </Card>

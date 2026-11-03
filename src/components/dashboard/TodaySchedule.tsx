@@ -11,18 +11,20 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog";
-import { Clock, Tag, AlignLeft, Plus, MapPin, Star, Baby, ExternalLink, Phone, Globe } from "lucide-react";
+import { Clock, Tag, AlignLeft, Plus, MapPin, Star, Baby, ExternalLink, Phone, Globe, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AddExpenseDialog } from "@/components/expenses/AddExpenseDialog";
 import { EditExpenseDialog } from "@/components/expenses/EditExpenseDialog";
 import { ExpenseCategory, ExpenseData } from "@/components/expenses/ExpenseList";
 import { PlaceData, PlaceCategory } from "@/components/places/PlaceCard";
 import { PlaceDetailDialog } from "@/components/places/PlaceDetailDialog";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
 import { format } from "date-fns";
 import { useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { parseStoredDateToLocal, todayLocalDateYYYYMMDD } from "@/lib/localDate";
 
 interface ScheduleItem {
     id: string;
@@ -55,15 +57,6 @@ const typeColors: Record<string, string> = {
     kids: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
 };
 
-const typeLabels: Record<string, string> = {
-    view: "관광",
-    food: "식사",
-    move: "이동",
-    rest: "휴식",
-    shop: "쇼핑",
-    kids: "키즈",
-};
-
 const mapToExpenseCategory = (type: string): ExpenseCategory => {
     switch (type) {
         case 'food': return 'food';
@@ -76,6 +69,7 @@ const mapToExpenseCategory = (type: string): ExpenseCategory => {
 };
 
 export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = false, daysSinceTripEnded = 0 }: TodayScheduleProps) {
+    const { t } = useTranslation();
     const [selectedItem, setSelectedItem] = useState<ScheduleItem | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -108,16 +102,17 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
     const fetchLinkedExpenses = async (scheduleId: string) => {
         setLoadingExpenses(true);
         try {
-            const { data, error } = await supabase
-                .from("expenses")
-                .select("*")
-                .eq("schedule_id", scheduleId)
-                .order("date", { ascending: false });
+            const data = await db.expenses
+                .where("schedule_id")
+                .equals(scheduleId)
+                .toArray();
+            
+            data.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
             if (data) {
                 const formattedData: ExpenseData[] = data.map((item: any) => ({
                     id: item.id,
-                    date: new Date(item.date),
+                    date: parseStoredDateToLocal(item.date),
                     amount: item.amount,
                     category: item.category as ExpenseCategory,
                     title: item.title,
@@ -136,18 +131,14 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
     const fetchLinkedPlace = async (placeId: string) => {
         setLoadingPlace(true);
         try {
-            const { data, error } = await supabase
-                .from("places")
-                .select("*")
-                .eq("id", placeId)
-                .single();
+            const data = await db.places.get(placeId);
 
-            if (data && !error) {
+            if (data) {
                 const formattedPlace: PlaceData = {
                     id: data.id,
                     name: data.name,
                     category: data.category as PlaceCategory,
-                    city: data.city || "시드니",
+                    city: data.city || currentCity || "",
                     rating: data.rating,
                     isKidFriendly: data.is_kid_friendly || false,
                     notes: data.notes || "",
@@ -158,8 +149,6 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                     websiteUrl: data.website_url,
                     address: data.address,
                     visitCount: data.visit_count || 0,
-                    lat: data.lat,
-                    lng: data.lng,
                 };
                 setLinkedPlace(formattedPlace);
             }
@@ -180,16 +169,6 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
         market: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
     };
 
-    const categoryLabels: Record<PlaceCategory, string> = {
-        tour: "관광",
-        food: "맛집",
-        shop: "쇼핑",
-        medical: "병원/약국",
-        play: "놀이터/키즈",
-        museum: "전시",
-        market: "시장",
-    };
-
     const handleItemClick = (item: ScheduleItem) => {
         setSelectedItem(item);
         setIsDialogOpen(true);
@@ -197,12 +176,13 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+                <div className="w-1 h-5 bg-primary rounded-full shrink-0" />
                 <h2 className="text-lg font-bold tracking-tight">
-                    {dayNumber ? `Day ${dayNumber} 일정` : "오늘 일정"}
+                    {dayNumber ? t("dashboard.today.titleWithDay", { day: String(dayNumber) }) : t("dashboard.today.titleToday")}
                 </h2>
-                <Badge variant="outline" className="font-normal">
-                    {items.length}개 활동
+                <Badge variant="outline" className="font-normal ml-auto">
+                    {t("dashboard.today.activitiesCount", { count: items.length })}
                 </Badge>
             </div>
 
@@ -210,7 +190,7 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                 {items.map((item, index) => (
                     <div
                         key={item.id}
-                        className="group relative flex gap-x-4 rounded-xl border bg-card p-4 transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer hover:shadow-sm"
+                        className="group relative flex gap-x-4 rounded-xl border bg-card p-4 shadow-sm transition-all hover:bg-zinc-50 dark:hover:bg-zinc-900/50 cursor-pointer hover:shadow-md"
                         onClick={() => handleItemClick(item)}
                     >
                         <div
@@ -236,11 +216,17 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                     </div>
                 ))}
                 {items.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                        {isTripEnded
-                            ? `여행을 다녀온지 ${daysSinceTripEnded}일이 지났습니다.`
-                            : "오늘 예정된 일정이 없습니다."}
-                    </p>
+                    <div className="flex flex-col items-center justify-center py-10 text-muted-foreground animate-in fade-in duration-500">
+                        <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mb-3">
+                            <CalendarCheck className="w-8 h-8 text-muted-foreground/40" />
+                        </div>
+                        <p className="text-sm font-medium text-foreground">
+                            {isTripEnded
+                                ? t("dashboard.today.endedDays", { days: String(daysSinceTripEnded) })
+                                : t("dashboard.today.noSchedule")}
+                        </p>
+                        {!isTripEnded && <p className="text-xs mt-1">{t("dashboard.today.relax")}</p>}
+                    </div>
                 )}
             </div>
 
@@ -248,7 +234,7 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                 <DialogContent className="max-w-md max-h-[90vh] !flex !flex-col overflow-hidden">
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-xl">{selectedItem?.title}</DialogTitle>
-                        <DialogDescription>일정 상세 정보입니다.</DialogDescription>
+                        <DialogDescription>{t("dashboard.today.detailDesc")}</DialogDescription>
                     </DialogHeader>
 
                     <div className="overflow-y-auto flex-1 min-h-0">
@@ -256,22 +242,22 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                             <div className="space-y-4 mt-2">
                                 <div className="flex items-center gap-2 text-sm">
                                     <Clock className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">시간:</span>
+                                    <span className="font-medium text-muted-foreground">{t("dashboard.today.time")}</span>
                                     <span>{selectedItem.time}</span>
                                 </div>
 
                                 <div className="flex items-center gap-2 text-sm">
                                     <Tag className="w-4 h-4 text-muted-foreground" />
-                                    <span className="font-medium text-muted-foreground">유형:</span>
+                                    <span className="font-medium text-muted-foreground">{t("dashboard.today.type")}</span>
                                     <Badge variant="secondary" className={cn("text-xs font-medium border-0", typeColors[selectedItem.type])}>
-                                        {typeLabels[selectedItem.type] || selectedItem.type.toUpperCase()}
+                                        {t(`dashboard.type.${selectedItem.type}`)}
                                     </Badge>
                                 </div>
 
                                 {/* 연동된 장소 정보 */}
                                 {selectedItem.place && (
                                     <div className="border-t pt-4 space-y-3">
-                                        <Label className="text-sm font-medium">연동된 장소</Label>
+                                        <Label className="text-sm font-medium">{t("dashboard.today.linkedPlace")}</Label>
                                         {loadingPlace ? (
                                             <div className="flex justify-center py-2">
                                                 <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -285,7 +271,7 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                                     <div className="flex-1">
                                                         <div className="flex items-center gap-2 mb-2">
                                                             <Badge variant="secondary" className={cn("text-xs font-medium border-0", categoryColors[linkedPlace.category])}>
-                                                                {categoryLabels[linkedPlace.category]}
+                                                                {t(`dashboard.place.${linkedPlace.category}`)}
                                                             </Badge>
                                                             {linkedPlace.rating && (
                                                                 <div className="flex items-center text-amber-500 text-xs">
@@ -296,7 +282,7 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                                             {linkedPlace.isKidFriendly && (
                                                                 <div className="flex items-center text-pink-500 text-xs">
                                                                     <Baby className="w-3 h-3 mr-0.5" />
-                                                                    키즈
+                                                                    {t("dashboard.today.kids")}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -334,7 +320,7 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     className="hover:underline"
                                                                 >
-                                                                    웹사이트
+                                                                    {t("dashboard.today.website")}
                                                                 </a>
                                                             </div>
                                                         )}
@@ -348,24 +334,24 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     className="hover:underline"
                                                                 >
-                                                                    지도에서 보기
+                                                                    {t("dashboard.today.viewOnMap")}
                                                                 </a>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
                                                 <div className="text-xs text-muted-foreground mt-2 pt-2 border-t border-border/50">
-                                                    클릭하여 상세 정보 보기
+                                                    {t("dashboard.today.clickForDetail")}
                                                 </div>
                                             </div>
                                         ) : (
                                             <div className="p-3 bg-muted rounded-md">
                                                 <div className="flex items-center gap-2 text-sm">
                                                     <MapPin className="w-4 h-4 text-muted-foreground" />
-                                                    <span className="font-medium text-muted-foreground">장소:</span>
+                                                    <span className="font-medium text-muted-foreground">{t("dashboard.today.place")}</span>
                                                     <span>{selectedItem.place.name}</span>
                                                 </div>
-                                                <p className="text-xs text-muted-foreground mt-2">장소 정보를 불러올 수 없습니다.</p>
+                                                <p className="text-xs text-muted-foreground mt-2">{t("dashboard.today.placeNotFound")}</p>
                                             </div>
                                         )}
                                     </div>
@@ -374,16 +360,16 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                 <div className="space-y-2">
                                     <div className="flex items-center gap-2 text-sm">
                                         <AlignLeft className="w-4 h-4 text-muted-foreground" />
-                                        <span className="font-medium text-muted-foreground">메모:</span>
+                                        <span className="font-medium text-muted-foreground">{t("dashboard.today.memo")}</span>
                                     </div>
                                     <div className="p-3 bg-muted rounded-md text-sm whitespace-pre-wrap min-h-[80px]">
-                                        {selectedItem.memo || "메모가 없습니다."}
+                                        {selectedItem.memo || t("dashboard.today.noMemo")}
                                     </div>
                                 </div>
 
                                 {/* 연동된 지출 목록 */}
                                 <div className="grid gap-2 border-t pt-4">
-                                    <Label className="text-sm font-medium">연동된 지출</Label>
+                                    <Label className="text-sm font-medium">{t("dashboard.today.linkedExpenses")}</Label>
                                     {loadingExpenses ? (
                                         <div className="flex justify-center py-2">
                                             <Loader2 className="w-4 h-4 animate-spin text-primary" />
@@ -416,7 +402,7 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                         </div>
                                     ) : (
                                         <p className="text-sm text-muted-foreground py-1">
-                                            연동된 지출이 없습니다.
+                                            {t("dashboard.today.noLinkedExpenses")}
                                         </p>
                                     )}
                                 </div>
@@ -426,19 +412,19 @@ export function TodaySchedule({ items, dayNumber, currentCity, isTripEnded = fal
                                         trigger={
                                             <Button size="sm" variant="outline" className="gap-1">
                                                 <Plus className="w-3.5 h-3.5" />
-                                                비용 추가
+                                                {t("dashboard.today.addExpense")}
                                             </Button>
                                         }
                                         initialData={{
                                             title: selectedItem.title,
-                                            date: new Date().toISOString().split('T')[0],
+                                            date: todayLocalDateYYYYMMDD(),
                                             category: mapToExpenseCategory(selectedItem.type),
                                             city: currentCity,
                                             // 홈 화면에서도 이 일정과 지출이 연동되도록 scheduleId 설정
                                             scheduleId: selectedItem.id,
                                         }}
                                         onExpenseAdded={() => {
-                                            alert('지출이 추가되었습니다.');
+                                            alert(t("dashboard.today.expenseAdded"));
                                         }}
                                     />
                                 </div>

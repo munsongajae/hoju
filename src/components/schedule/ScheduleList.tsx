@@ -6,6 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Coffee, Map, Plane, BedDouble, Baby, ShoppingBag, Check, MapPin, GripVertical, Plus } from "lucide-react";
+import { ShareButton } from "@/components/ui/share-button";
+import { formatScheduleText } from "@/lib/shareUtils";
 import { format, addDays } from "date-fns";
 import { ko } from "date-fns/locale";
 import {
@@ -29,6 +31,7 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useTranslation } from "react-i18next";
 
 export type ScheduleType = "view" | "food" | "move" | "rest" | "shop" | "kids";
 
@@ -53,6 +56,7 @@ export interface ScheduleItemData {
 
 interface ScheduleListProps {
     items: ScheduleItemData[];
+    tripTitle?: string;
     tripStartDate?: Date | null;
     onItemClick?: (item: ScheduleItemData) => void;
     onToggleComplete?: (item: ScheduleItemData) => void;
@@ -174,10 +178,12 @@ function SortableScheduleItem({
             >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                     <h4 className={cn(
-                        "text-base font-medium",
-                        item.isCompleted && "line-through"
+                        "text-sm font-semibold",
+                        item.isCompleted && "line-through text-muted-foreground"
                     )}>{item.title}</h4>
-                    <time className="text-xs text-muted-foreground font-mono">{item.time}</time>
+                    {item.time && (
+                        <time className="inline-flex items-center bg-muted px-1.5 py-0.5 rounded-md text-[10px] font-mono text-muted-foreground self-start sm:self-auto shrink-0">{item.time}</time>
+                    )}
                 </div>
 
                 {!compactMode && (
@@ -202,7 +208,8 @@ function SortableScheduleItem({
     );
 }
 
-export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComplete, onOrderChange, compactMode = false, onAddSchedule }: ScheduleListProps) {
+export function ScheduleList({ items, tripTitle = "여행", tripStartDate, onItemClick, onToggleComplete, onOrderChange, compactMode = false, onAddSchedule }: ScheduleListProps) {
+    const { t } = useTranslation();
     const isDraggingRef = useRef(false);
     
     const sensors = useSensors(
@@ -227,8 +234,20 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
     };
     if (items.length === 0) {
         return (
-            <div className="text-center py-10 text-muted-foreground">
-                선택한 일정/지역에 해당하는 항목이 없습니다.
+            <div className="flex flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in duration-500">
+                <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                    <Map className="w-10 h-10 text-muted-foreground/40" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-1">{t("schedule.empty.title")}</h3>
+                <p className="text-sm text-center max-w-[250px]">
+                    {t("schedule.empty.description")}
+                </p>
+                {onAddSchedule && (
+                    <Button onClick={() => onAddSchedule(1)} className="mt-5 shadow-sm" variant="outline">
+                        <Plus className="w-4 h-4 mr-2" />
+                        {t("schedule.empty.add")}
+                    </Button>
+                )}
             </div>
         );
     }
@@ -462,17 +481,38 @@ export function ScheduleList({ items, tripStartDate, onItemClick, onToggleComple
                                             )}
                                             <span className="text-muted-foreground text-sm font-normal">· {dayItems[0].city}</span>
                                         </h3>
-                                        {onAddSchedule && (
-                                            <Button
+                                        <div className="flex items-center gap-1">
+                                            <ShareButton
+                                                title={`${tripTitle} - Day ${day} 일정`}
+                                                size="icon"
                                                 variant="ghost"
-                                                size="sm"
                                                 className="h-7 w-7 p-0"
-                                                onClick={() => onAddSchedule(day)}
-                                                title="일정 추가"
-                                            >
-                                                <Plus className="w-4 h-4" />
-                                            </Button>
-                                        )}
+                                                generateText={() => formatScheduleText(
+                                                    tripTitle,
+                                                    dayItems.map(item => ({
+                                                        day_number: item.day,
+                                                        start_time: item.rawTime,
+                                                        title: item.title,
+                                                        city: item.city,
+                                                        type: item.type,
+                                                        memo: item.memo,
+                                                        is_completed: item.isCompleted,
+                                                    })),
+                                                    `Day ${day} 일정`
+                                                )}
+                                            />
+                                            {onAddSchedule && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-7 w-7 p-0"
+                                                    onClick={() => onAddSchedule(day)}
+                                                    title="일정 추가"
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                </Button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className={cn(

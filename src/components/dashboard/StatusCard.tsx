@@ -3,6 +3,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { format } from "date-fns";
 import { MapPin, CalendarDays } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { getTripRelativeDayNumber, clampDayNumber } from "@/lib/tripDay";
 
 interface StatusCardProps {
     currentDate: Date;
@@ -19,16 +21,14 @@ export function StatusCard({
     currentCity,
     familyCount = 4,
 }: StatusCardProps) {
-    // 여행 시작 전/중/후 계산
-    const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    const tripStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-    const diffTime = today.getTime() - tripStart.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const { t } = useTranslation();
 
-    const isTripStarted = diffDays >= 0;
-    const rawDayNumber = diffDays + 1;
-    const clampedDayNumber = Math.min(Math.max(rawDayNumber, 1), totalDays);
-    const dayNumber = isTripStarted ? clampedDayNumber : Math.abs(diffDays);
+    // 여행 시작 전/중/후 계산 (캘린더 날짜 기준, 타임존/DST 안전)
+    const relativeDayNumber = getTripRelativeDayNumber(currentDate, startDate); // start => 1, day before => 0
+    const isTripStarted = relativeDayNumber >= 1;
+    const dayNumber = isTripStarted
+        ? clampDayNumber(relativeDayNumber, totalDays)
+        : Math.abs(relativeDayNumber - 1); // 0 => D-1, -1 => D-2 ...
 
     return (
         <Card className="bg-primary text-primary-foreground border-none shadow-lg pt-2 pb-0">
@@ -36,7 +36,7 @@ export function StatusCard({
                 <div className="flex justify-between items-start">
                     <div>
                         <p className="text-primary-foreground/80 text-sm font-medium mb-1">
-                            {isTripStarted ? "현재 여행지" : "여행 준비 중"}
+                            {isTripStarted ? t("dashboard.status.currentDestination") : t("dashboard.status.preparingTrip")}
                         </p>
                         <div className="flex items-center gap-2 text-2xl font-bold">
                             <MapPin className="w-6 h-6" />
@@ -45,7 +45,7 @@ export function StatusCard({
                     </div>
                     <div className="text-right">
                         <p className="text-primary-foreground/80 text-sm font-medium mb-1">
-                            {isTripStarted ? "여행 진행률" : "출발까지"}
+                            {isTripStarted ? t("dashboard.status.progress") : t("dashboard.status.untilDeparture")}
                         </p>
                         <div className="flex items-center gap-2 text-2xl font-bold justify-end">
                             <CalendarDays className="w-6 h-6" />

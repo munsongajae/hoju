@@ -51,7 +51,7 @@ export function ExpenseList({ expenses, onItemClick }: ExpenseListProps) {
         <div className="space-y-3">
             {sortedExpenses.map((expense) => {
                 const Icon = categoryIcons[expense.category];
-                const isKRW = expense.currency === 'KRW';
+                const cur = expense.currency || 'AUD';
 
                 return (
                     <div
@@ -69,7 +69,7 @@ export function ExpenseList({ expenses, onItemClick }: ExpenseListProps) {
                                     <span>{format(expense.date, "MM/dd")}</span>
                                     <span>·</span>
                                     <span>{expense.city}</span>
-                                    {isKRW && <span className="text-orange-600 dark:text-orange-400 font-medium ml-1">KRW</span>}
+                                    {cur !== 'AUD' && <span className="text-orange-600 dark:text-orange-400 font-medium ml-1">{cur}</span>}
                                     {expense.scheduleTitle && (
                                         <>
                                             <span>·</span>
@@ -79,8 +79,8 @@ export function ExpenseList({ expenses, onItemClick }: ExpenseListProps) {
                                 </div>
                             </div>
                         </div>
-                        <div className="font-semibold text-right">
-                            {isKRW ? '₩' : 'A$'}{expense.amount.toLocaleString()}
+                        <div className="text-base font-bold text-right shrink-0">
+                            {cur === 'KRW' ? '₩' : cur === 'AUD' ? 'A$' : `${cur} `}{expense.amount.toLocaleString()}
                         </div>
                     </div>
                 );

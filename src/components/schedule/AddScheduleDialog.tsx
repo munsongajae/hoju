@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2, CalendarIcon, Search, X } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { db, generateId } from "@/lib/db";
 import { ScheduleType } from "./ScheduleList";
 import { addDays, format, differenceInCalendarDays } from "date-fns";
 import { useTrip } from "@/contexts/TripContext";
@@ -33,6 +33,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { parseIsoToLocalDate } from "@/lib/localDate";
 
 interface AddScheduleDialogProps {
     onScheduleAdded: () => void;
@@ -84,16 +85,25 @@ export function AddScheduleDialog({
     const [placeSearchOpen, setPlaceSearchOpen] = useState(false);
     const [placeSearchQuery, setPlaceSearchQuery] = useState("");
 
+    const parsedCities = useMemo(() => {
+        return selectedTrip?.cities
+            ? selectedTrip.cities.split(',').map(c => c.trim()).filter(Boolean)
+            : ["시드니", "멜버른"];
+    }, [selectedTrip?.cities]);
+
     // Initialize with initialData when opening
     useEffect(() => {
         if (finalOpen) {
             if (initialData) {
                 if (initialData.title) setTitle(initialData.title);
                 if (initialData.city) setCity(initialData.city);
+                else setCity(parsedCities[0] || "시드니");
                 if (initialData.memo) setMemo(initialData.memo);
                 if (initialData.day !== undefined) {
                     setDay(initialData.day.toString());
                 }
+            } else {
+                setCity(parsedCities[0] || "시드니");
             }
             if (initialDay !== undefined) {
                 setDay(initialDay.toString());
@@ -104,13 +114,13 @@ export function AddScheduleDialog({
             setMemo("");
             setPlaceId("none");
         }
-    }, [finalOpen, initialData, initialDay, isControlled]);
+    }, [finalOpen, initialData, initialDay, isControlled, parsedCities]);
 
     // Fetch trip start date and places
     useEffect(() => {
         if (finalOpen && selectedTrip) {
             if (selectedTrip.start_date) {
-                const start = new Date(selectedTrip.start_date);
+                const start = parseIsoToLocalDate(selectedTrip.start_date);
                 setTripStartDate(start);
                 // Initialize selectedDate based on current day
                 const currentDay = parseInt(day);
@@ -131,20 +141,17 @@ export function AddScheduleDialog({
     const fetchPlaces = async () => {
         if (!selectedTripId) return;
         try {
-            const { data, error } = await supabase
-                .from("places")
-                .select("id, name")
-                .eq("trip_id", selectedTripId)
-                .eq("city", city)
-                .order("name");
+            const data = await db.places
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
 
-            if (error) {
-                console.error("Error fetching places:", error);
-                return;
-            }
+            const filteredData = data
+                .filter(p => p.city === city)
+                .sort((a, b) => a.name.localeCompare(b.name));
 
-            if (data) {
-                setPlaces(data);
+            if (filteredData) {
+                setPlaces(filteredData.map(p => ({ id: p.id, name: p.name })));
             }
         } catch (err) {
             console.error("Failed to fetch places:", err);
@@ -180,7 +187,9 @@ export function AddScheduleDialog({
         setLoading(true);
 
         try {
-            const { error } = await supabase.from("schedules").insert([{
+            const newScheduleId = generateId();
+            await db.schedules.add({
+                id: newScheduleId,
                 trip_id: selectedTripId,
                 day_number: parseInt(day),
                 city,
@@ -188,10 +197,10 @@ export function AddScheduleDialog({
                 title,
                 type,
                 memo,
-                place_id: placeId === "none" ? null : placeId,
-            }]);
-
-            if (error) throw error;
+                place_id: placeId === "none" ? undefined : placeId,
+                created_at: new Date().toISOString(),
+                is_completed: false,
+            });
 
             setTitle("");
             setMemo("");
@@ -280,8 +289,9 @@ export function AddScheduleDialog({
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="시드니">시드니</SelectItem>
-                                        <SelectItem value="멜버른">멜버른</SelectItem>
+                                        {parsedCities.map(c => (
+                                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -423,6 +433,8 @@ export function AddScheduleDialog({
                                 추가하기
                             </Button>
                         </DialogFooter>
+                        {/* Ad 배너 영역 겹침 방지용 고정 여백 */}
+                        <div className="h-[60px] flex-shrink-0" />
                     </form>
                 </div>
             </DialogContent>

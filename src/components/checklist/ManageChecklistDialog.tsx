@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2, Loader2, Edit2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/lib/supabase";
+import { db, generateId } from "@/lib/db";
 import { useTrip } from "@/contexts/TripContext";
 
 interface ManageChecklistDialogProps {
@@ -57,16 +57,14 @@ export function ManageChecklistDialog({ onSuccess, categories }: ManageChecklist
             const categoryToUse = selectedCategory === "new_category" ? newCategory : selectedCategory;
             if (!categoryToUse) return;
 
-            const { error } = await supabase
-                .from("checklists")
-                .insert([{
-                    label: itemLabel,
-                    category: categoryToUse,
-                    is_checked: false,
-                    trip_id: selectedTripId,
-                }]);
-
-            if (error) throw error;
+            await db.checklists.add({
+                id: generateId(),
+                title: itemLabel,
+                category: categoryToUse,
+                is_completed: false,
+                trip_id: selectedTripId,
+                created_at: new Date().toISOString()
+            });
 
             // 폼 리셋
             setItemLabel("");

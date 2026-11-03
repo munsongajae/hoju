@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -20,9 +20,10 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { db, generateId } from "@/lib/db";
 import { ExpenseCategory } from "./ExpenseList";
 import { useTrip } from "@/contexts/TripContext";
+import { formatLocalDateYYYYMMDD, parseIsoToLocalDate, todayLocalDateYYYYMMDD } from "@/lib/localDate";
 
 const CURRENCIES = [
   { code: "KRW", name: "대한민국 원", flag: "🇰🇷" },
@@ -116,7 +117,7 @@ export function AddExpenseDialog({
 
 
     // Form States
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(todayLocalDateYYYYMMDD());
     const [amount, setAmount] = useState("");
     const [title, setTitle] = useState("");
     const [category, setCategory] = useState<ExpenseCategory>("food");
@@ -124,6 +125,12 @@ export function AddExpenseDialog({
     const [currency, setCurrency] = useState<string>('AUD');
     const [schedules, setSchedules] = useState<{ id: string; title: string; day_number: number }[]>([]);
     const [selectedScheduleId, setSelectedScheduleId] = useState<string>("none");
+
+    const parsedCities = useMemo(() => {
+        return selectedTrip?.cities
+            ? selectedTrip.cities.split(',').map(c => c.trim()).filter(Boolean)
+            : ["시드니", "멜버른"];
+    }, [selectedTrip?.cities]);
 
     // Initialize with initialData when opening
     useEffect(() => {
@@ -133,22 +140,24 @@ export function AddExpenseDialog({
                 if (initialData.title) setTitle(initialData.title);
                 if (initialData.category) setCategory(initialData.category);
                 if (initialData.city) setCity(initialData.city);
+                else setCity(parsedCities[0] || "시드니");
                 if (initialData.amount) setAmount(initialData.amount.toString());
                 if (initialData.scheduleId) setSelectedScheduleId(initialData.scheduleId);
+            } else {
+                setCity(parsedCities[0] || "시드니");
             }
 
             // Fetch schedules
             if (selectedTripId) {
                 const fetchSchedules = async () => {
-                    const { data } = await supabase
-                        .from("schedules")
-                        .select("id, title, day_number")
-                        .eq("trip_id", selectedTripId)
-                        .order("day_number", { ascending: true })
-                        .order("start_time", { ascending: true });
+                    const data = await db.schedules
+                        .where("trip_id")
+                        .equals(selectedTripId)
+                        .toArray();
 
                     if (data) {
-                        setSchedules(data);
+                        data.sort((a,b) => (a.day_number - b.day_number) || (a.start_time || "").localeCompare(b.start_time || ""));
+                        setSchedules(data as any);
                     }
                 };
                 fetchSchedules();
@@ -166,13 +175,15 @@ export function AddExpenseDialog({
 
         try {
             const expenseData: any = {
+                id: generateId(),
                 trip_id: selectedTripId,
-                date: new Date(date).toISOString(),
+                date: date,
                 amount: parseFloat(amount),
                 title,
                 category,
                 city,
-                currency
+                currency,
+                created_at: new Date().toISOString()
             };
 
             // schedule_id가 있으면 추가
@@ -183,9 +194,7 @@ export function AddExpenseDialog({
                 expenseData.schedule_id = initialData.scheduleId;
             }
 
-            const { error } = await supabase.from("expenses").insert([expenseData]);
-
-            if (error) throw error;
+            await db.expenses.add(expenseData);
 
             setTitle("");
             setAmount("");
@@ -269,8 +278,9 @@ export function AddExpenseDialog({
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="시드니">시드니</SelectItem>
-                                <SelectItem value="멜버른">멜버른</SelectItem>
+                                {parsedCities.map(c => (
+                                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
                     </div>
@@ -314,9 +324,9 @@ export function AddExpenseDialog({
                                 {schedules.map((schedule) => {
                                     let dateStr = "";
                                     if (selectedTrip?.start_date && schedule.day_number) {
-                                        const date = new Date(selectedTrip.start_date);
-                                        date.setDate(date.getDate() + (schedule.day_number - 1));
-                                        dateStr = date.toISOString().slice(5, 10); // MM-DD
+                                        const base = parseIsoToLocalDate(selectedTrip.start_date);
+                                        base.setDate(base.getDate() + (schedule.day_number - 1));
+                                        dateStr = formatLocalDateYYYYMMDD(base).slice(5); // MM-DD
                                     }
                                     return (
                                         <SelectItem key={schedule.id} value={schedule.id}>
@@ -334,6 +344,8 @@ export function AddExpenseDialog({
                             추가하기
                         </Button>
                     </DialogFooter>
+                    {/* Ad 배너 영역 겹침 방지용 고정 여백 */}
+                    <div className="h-[60px] flex-shrink-0" />
                 </form>
             </DialogContent>
         </Dialog>

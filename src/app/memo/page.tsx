@@ -14,11 +14,11 @@ import {
     DialogTrigger,
     DialogFooter
 } from "@/components/ui/dialog";
-import { Plus, Loader2, Edit, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Loader2, Edit, Trash2, ArrowLeft, NotebookPen } from "lucide-react";
 import { format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useTrip } from "@/contexts/TripContext";
-import { supabase } from "@/lib/supabase";
+import { db, generateId } from "@/lib/db";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import Link from "next/link";
 
@@ -56,16 +56,15 @@ export default function MemoPage() {
 
         try {
             setLoading(true);
-            const { data, error } = await supabase
-                .from("memos")
-                .select("*")
-                .eq("trip_id", selectedTripId)
-                .order("updated_at", { ascending: false });
+            const data = await db.memos
+                .where("trip_id")
+                .equals(selectedTripId)
+                .toArray();
+            
+            data.sort((a,b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
 
-            if (error) {
-                console.error("Error loading memos:", error);
-            } else if (data) {
-                setMemos(data);
+            if (data) {
+                setMemos(data as unknown as MemoItem[]);
             }
         } catch (err) {
             console.error("Failed to load memos:", err);
@@ -95,38 +94,34 @@ export default function MemoPage() {
         try {
             if (editingId) {
                 // 수정
-                const { data, error } = await supabase
-                    .from("memos")
-                    .update({
-                        title: formTitle.trim(),
-                        content: formContent || null,
-                    })
-                    .eq("id", editingId)
-                    .select()
-                    .single();
+                const now = new Date().toISOString();
+                await db.memos.update(editingId, {
+                    title: formTitle.trim(),
+                    content: formContent || "",
+                    updated_at: now
+                });
+                
+                const updatedMemo = await db.memos.get(editingId);
 
-                if (error) throw error;
-                if (data) {
+                if (updatedMemo) {
                     // 목록 업데이트
-                    setMemos(memos.map(memo => memo.id === editingId ? data : memo));
+                    setMemos(memos.map(memo => memo.id === editingId ? updatedMemo as unknown as MemoItem : memo));
                 }
             } else {
                 // 새 메모 추가
-                const { data, error } = await supabase
-                    .from("memos")
-                    .insert([{
-                        trip_id: selectedTripId,
-                        title: formTitle.trim(),
-                        content: formContent || null,
-                    }])
-                    .select()
-                    .single();
+                const newMemo: any = {
+                    id: generateId(),
+                    trip_id: selectedTripId,
+                    title: formTitle.trim(),
+                    content: formContent || "",
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                
+                await db.memos.add(newMemo);
 
-                if (error) throw error;
-                if (data) {
-                    // 목록에 추가
-                    setMemos([data, ...memos]);
-                }
+                // 목록에 추가
+                setMemos([newMemo as MemoItem, ...memos]);
             }
 
             setDialogOpen(false);
@@ -146,12 +141,7 @@ export default function MemoPage() {
 
         setDeleting(id);
         try {
-            const { error } = await supabase
-                .from("memos")
-                .delete()
-                .eq("id", id);
-
-            if (error) throw error;
+            await db.memos.delete(id);
 
             // 목록에서 제거
             setMemos(memos.filter(memo => memo.id !== id));
@@ -243,14 +233,15 @@ export default function MemoPage() {
 
             {/* 메모 목록 */}
             {memos.length === 0 ? (
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="text-center py-8 text-muted-foreground">
-                            <p className="text-lg mb-2">메모가 없습니다</p>
-                            <p className="text-sm">새 메모를 추가해보세요</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground animate-in fade-in duration-500">
+                    <div className="w-20 h-20 bg-muted/50 rounded-full flex items-center justify-center mb-4">
+                        <NotebookPen className="w-10 h-10 text-muted-foreground/40" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground mb-1">메모가 없습니다</h3>
+                    <p className="text-sm text-center max-w-[250px]">
+                        여행 중 기억하고 싶은 것들을 메모해두세요.
+                    </p>
+                </div>
             ) : (
                 <div className="space-y-3">
                     {memos.map((memo) => (

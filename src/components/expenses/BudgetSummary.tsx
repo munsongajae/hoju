@@ -5,46 +5,59 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/lib/supabase";
+import { db, generateId } from "@/lib/db";
 import { ExpenseData } from "./ExpenseList";
 import { useTrip } from "@/contexts/TripContext";
+import {
+    fetchMultipleRates,
+    getUniqueExpenseCurrencies,
+    sumExpensesInKRW,
+} from "@/lib/exchangeRate";
+import { useTranslation } from "react-i18next";
 
 interface BudgetSummaryProps {
   expenses: ExpenseData[];
 }
 
 export function BudgetSummary({ expenses }: BudgetSummaryProps) {
+  const { t } = useTranslation();
   const { selectedTripId } = useTrip();
   const [totalBudgetKRW, setTotalBudgetKRW] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
   const [loadingRate, setLoadingRate] = useState(true);
 
-  // 환율 가져오기
+  const uniqueCurrencies = getUniqueExpenseCurrencies(expenses);
+
+  // 지출에 사용된 모든 비-KRW 통화의 환율을 가져옵니다.
   useEffect(() => {
-    fetch('/api/exchange-rate')
-      .then(res => res.json())
-      .then(data => {
-        if (data.rate) setExchangeRate(data.rate);
+    if (uniqueCurrencies.length === 0) {
+      setExchangeRates({});
+      setLoadingRate(false);
+      return;
+    }
+    setLoadingRate(true);
+    let cancelled = false;
+    fetchMultipleRates(uniqueCurrencies)
+      .then(result => {
+        if (!cancelled) setExchangeRates(result);
       })
-      .catch(err => console.error("Failed to fetch rate:", err))
-      .finally(() => setLoadingRate(false));
-  }, []);
+      .catch(err => console.error("Failed to fetch rates:", err))
+      .finally(() => {
+        if (!cancelled) setLoadingRate(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(uniqueCurrencies)]);
 
-  // 실제 지출 합계 (모든 통화를 원화로 합산)
-  const safeRate = exchangeRate || 900; // 기본값 900
-  
-  const totalSpentKRWDirect = expenses
-    .filter((e) => e.currency === "KRW")
-    .reduce((sum, item) => sum + item.amount, 0);
-
-  const totalSpentAUD = expenses
-    .filter((e) => !e.currency || e.currency === "AUD")
-    .reduce((sum, item) => sum + item.amount, 0);
-
-  // AUD 지출을 원화로 환산하여 합산
-  const totalSpentKRW = totalSpentKRWDirect + (totalSpentAUD * safeRate);
+  // 환산 가능한 항목만 합산. 환율 없는 통화는 missingCurrencies로 별도 안내.
+  const sum = sumExpensesInKRW(expenses, exchangeRates);
+  const totalSpentKRW = sum.totalKrw;
+  const missingCurrencies = sum.missingCurrencies;
+  const appliedRateCount = Object.keys(exchangeRates).length;
 
   const ratioKRW =
     totalBudgetKRW && Number(totalBudgetKRW) > 0
@@ -57,22 +70,18 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
     const fetchBudget = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("trip_budgets")
-          .select("total_budget_krw")
-          .eq("trip_id", selectedTripId)
-          .maybeSingle();
-
-        if (error) {
-          console.error("Failed to fetch budget:", error);
-          return;
-        }
+        const data = await db.trip_budgets
+          .where("trip_id")
+          .equals(selectedTripId)
+          .first();
 
         if (data && data.total_budget_krw != null) {
           setTotalBudgetKRW(String(Number(data.total_budget_krw)));
         } else {
           setTotalBudgetKRW("");
         }
+      } catch (error) {
+        console.error("Failed to fetch budget:", error);
       } finally {
         setLoading(false);
       }
@@ -84,31 +93,36 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTripId) {
-      alert("여행을 선택해주세요.");
+      alert(t("expenses.budget.selectTrip"));
       return;
     }
 
     setSaving(true);
     try {
-      const totalKRWNumber = totalBudgetKRW ? Number(totalBudgetKRW) : null;
+      const totalKRWNumber = totalBudgetKRW ? Number(totalBudgetKRW) : undefined;
 
-      const { error } = await supabase
-        .from("trip_budgets")
-        .upsert(
-          {
-            trip_id: selectedTripId,
-            total_budget_krw: totalKRWNumber,
-          },
-          { onConflict: "trip_id" }
-        );
+      const existing = await db.trip_budgets
+          .where("trip_id")
+          .equals(selectedTripId)
+          .first();
 
-      if (error) {
-        console.error("Failed to save budget:", error);
-        alert("예산 저장에 실패했습니다.");
-        return;
+      if (existing) {
+          await db.trip_budgets.update(existing.id, {
+              total_budget_krw: totalKRWNumber,
+          });
+      } else {
+          await db.trip_budgets.add({
+              id: generateId(),
+              trip_id: selectedTripId,
+              total_budget_krw: totalKRWNumber,
+              created_at: new Date().toISOString()
+          });
       }
 
-      alert("예산이 저장되었습니다.");
+      alert(t("expenses.budget.saveSuccess"));
+    } catch (error) {
+      console.error("Failed to save budget:", error);
+      alert(t("expenses.budget.saveFail"));
     } finally {
       setSaving(false);
     }
@@ -136,27 +150,22 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">예산 관리</CardTitle>
+        <CardTitle className="text-base">{t("expenses.budget.title")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleSave} className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs">전체 예산 (KRW)</Label>
+            <Label className="text-xs">{t("expenses.budget.totalBudget")}</Label>
             <Input
               type="number"
               min={0}
               value={totalBudgetKRW}
               onChange={(e) => setTotalBudgetKRW(e.target.value)}
-              placeholder="예: 3,000,000"
+              placeholder={t("expenses.budget.placeholder")}
             />
             <div className="text-[11px] text-muted-foreground flex justify-between">
               <span>
-                사용액: ₩ {Math.round(totalSpentKRW).toLocaleString()}
-                {totalSpentAUD > 0 && (
-                  <span className="ml-1 text-[10px]">
-                    (A$ {totalSpentAUD.toLocaleString()} 포함)
-                  </span>
-                )}
+                {t("expenses.budget.spent")}: ₩ {Math.round(totalSpentKRW).toLocaleString()}
               </span>
               {totalBudgetKRW && Number(totalBudgetKRW) > 0 && (
                 <span>{Math.round(ratioKRW * 100)}%</span>
@@ -164,12 +173,17 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
             </div>
             {loadingRate && (
               <div className="text-[10px] text-muted-foreground">
-                환율 로딩 중...
+                {t("expenses.budget.rateLoading")}
               </div>
             )}
-            {!loadingRate && exchangeRate && (
+            {!loadingRate && appliedRateCount > 0 && (
               <div className="text-[10px] text-muted-foreground">
-                환율: 1 AUD = {exchangeRate} KRW
+                {t("expenses.budget.rateApplied", { count: appliedRateCount })}
+              </div>
+            )}
+            {!loadingRate && missingCurrencies.length > 0 && (
+              <div className="text-[10px] text-orange-600 dark:text-orange-400">
+                {t("expenses.budget.rateMissing", { currencies: missingCurrencies.join(", ") })}
               </div>
             )}
             {totalBudgetKRW && Number(totalBudgetKRW) > 0 && renderBar(ratioKRW)}
@@ -177,14 +191,14 @@ export function BudgetSummary({ expenses }: BudgetSummaryProps) {
 
           <div className="flex justify-end">
             <Button type="submit" size="sm" disabled={saving || loading}>
-              {saving ? "저장 중..." : "예산 저장"}
+              {saving ? t("expenses.budget.saving") : t("expenses.budget.save")}
             </Button>
           </div>
         </form>
 
         {ratioKRW > 1 && (
           <div className="text-xs text-red-600 dark:text-red-400">
-            예산을 초과했습니다. 지출을 다시 점검해 보세요.
+            {t("expenses.budget.overBudget")}
           </div>
         )}
       </CardContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -21,8 +21,9 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Trash2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { db } from "@/lib/db";
 import { PlaceData, PlaceCategory } from "./PlaceCard";
+import { useTrip } from "@/contexts/TripContext";
 
 interface EditPlaceDialogProps {
     place: PlaceData | null;
@@ -41,7 +42,7 @@ export function EditPlaceDialog({
     const [deleting, setDeleting] = useState(false);
 
     const [name, setName] = useState("");
-    const [city, setCity] = useState("시드니");
+    const [city, setCity] = useState("");
     const [category, setCategory] = useState<PlaceCategory>("tour");
     const [rating, setRating] = useState("5");
     const [isKidFriendly, setIsKidFriendly] = useState(false);
@@ -51,13 +52,18 @@ export function EditPlaceDialog({
     const [operatingHours, setOperatingHours] = useState("");
     const [contactPhone, setContactPhone] = useState("");
     const [websiteUrl, setWebsiteUrl] = useState("");
-    const [lat, setLat] = useState("");
-    const [lng, setLng] = useState("");
+    const { selectedTrip } = useTrip();
+
+    const parsedCities = useMemo(() => {
+        return selectedTrip?.cities
+            ? selectedTrip.cities.split(',').map(c => c.trim()).filter(Boolean)
+            : [];
+    }, [selectedTrip?.cities]);
 
     useEffect(() => {
         if (place) {
             setName(place.name);
-            setCity(place.city || "시드니");
+            setCity(place.city || parsedCities[0] || "");
             setCategory(place.category);
             setRating(String(place.rating || 5));
             setIsKidFriendly(place.isKidFriendly || false);
@@ -67,10 +73,8 @@ export function EditPlaceDialog({
             setOperatingHours(place.operatingHours || "");
             setContactPhone(place.contactPhone || "");
             setWebsiteUrl(place.websiteUrl || "");
-            setLat(place.lat ? String(place.lat) : "");
-            setLng(place.lng ? String(place.lng) : "");
         }
-    }, [place]);
+    }, [place, parsedCities]);
 
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -78,26 +82,19 @@ export function EditPlaceDialog({
         setLoading(true);
 
         try {
-            const { error } = await supabase
-                .from("places")
-                .update({
-                    name,
-                    city,
-                    category,
-                    rating: parseFloat(rating),
-                    is_kid_friendly: isKidFriendly,
-                    notes,
-                    google_map_url: googleMapUrl,
-                    address: address || null,
-                    operating_hours: operatingHours || null,
-                    contact_phone: contactPhone || null,
-                    website_url: websiteUrl || null,
-                    lat: lat ? parseFloat(lat) : null,
-                    lng: lng ? parseFloat(lng) : null,
-                })
-                .eq('id', place.id);
-
-            if (error) throw error;
+            await db.places.update(place.id, {
+                name,
+                city,
+                category,
+                rating: parseFloat(rating),
+                is_kid_friendly: isKidFriendly,
+                notes,
+                google_map_url: googleMapUrl,
+                address: address || undefined,
+                operating_hours: operatingHours || undefined,
+                contact_phone: contactPhone || undefined,
+                website_url: websiteUrl || undefined,
+            });
 
             onOpenChange(false);
             onPlaceUpdated();
@@ -115,12 +112,7 @@ export function EditPlaceDialog({
 
         setDeleting(true);
         try {
-            const { error } = await supabase
-                .from("places")
-                .delete()
-                .eq('id', place.id);
-
-            if (error) throw error;
+            await db.places.delete(place.id);
 
             onOpenChange(false);
             onPlaceUpdated();
@@ -158,8 +150,9 @@ export function EditPlaceDialog({
                                     <SelectValue placeholder="도시 선택" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="시드니">시드니</SelectItem>
-                                    <SelectItem value="멜버른">멜버른</SelectItem>
+                                    {parsedCities.map(c => (
+                                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -251,31 +244,6 @@ export function EditPlaceDialog({
                             value={googleMapUrl}
                             onChange={(e) => setGoogleMapUrl(e.target.value)}
                         />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="edit-lat">위도 (Latitude)</Label>
-                            <Input
-                                id="edit-lat"
-                                type="number"
-                                step="any"
-                                value={lat}
-                                onChange={(e) => setLat(e.target.value)}
-                                placeholder="-33.8688"
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="edit-lng">경도 (Longitude)</Label>
-                            <Input
-                                id="edit-lng"
-                                type="number"
-                                step="any"
-                                value={lng}
-                                onChange={(e) => setLng(e.target.value)}
-                                placeholder="151.2093"
-                            />
-                        </div>
                     </div>
 
                     <div className="grid gap-2">

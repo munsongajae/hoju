@@ -2,12 +2,17 @@
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import Image from "next/image";
+import { useTranslation } from "react-i18next";
 
 interface DashboardHeaderProps {
     title?: string;
 }
 
 export function DashboardHeader({ title }: DashboardHeaderProps) {
+    const { t, i18n } = useTranslation();
+    const language = i18n.resolvedLanguage ?? i18n.language ?? "ko";
+    const isEn = language.startsWith("en");
+
     return (
         <header className="flex items-center justify-between py-2 mb-0">
             <div className="flex-1 flex items-center gap-3">
@@ -22,15 +27,21 @@ export function DashboardHeader({ title }: DashboardHeaderProps) {
                 {title && (
                     <div className="text-xs text-muted-foreground flex flex-col ml-2">
                         <div className="flex items-center gap-1">
-                            <span>파워</span>
+                            <span>{t("dashboard.header.power")}</span>
                             <span className="text-lg font-bold text-primary">J</span>
-                            <span>들의</span>
+                            {!isEn && <span>{t("dashboard.header.of")}</span>}
                         </div>
                         <div className="flex items-center gap-1">
-                            <span className="text-lg font-bold text-primary">여</span>
-                            <span>행</span>
-                            <span className="text-lg font-bold text-primary">관</span>
-                            <span>리</span>
+                            {isEn ? (
+                                <span className="text-sm font-semibold text-primary">J Travel Planner</span>
+                            ) : (
+                                <>
+                                    <span className="text-lg font-bold text-primary">여</span>
+                                    <span>{t("dashboard.header.travel")}</span>
+                                    <span className="text-lg font-bold text-primary">관</span>
+                                    <span>{t("dashboard.header.manage")}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}
