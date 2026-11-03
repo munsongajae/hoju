@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { db, Trip } from "@/lib/db";
 import { runDateNormalizationMigration } from "@/lib/dateMigration";
+import { ensureDefaultSampleData } from "@/lib/seedData";
 
 // Dexie db.ts의 Trip 인터페이스를 직접 활용하므로 기존 인터페이스는 삭제하거나 상속할 수 있습니다.
 // 여기서는 `import { Trip }`을 사용합니다.
@@ -14,6 +15,7 @@ interface TripContextType {
     loading: boolean;
     setSelectedTripId: (tripId: string | null) => void;
     refreshTrips: () => Promise<void>;
+    loadSampleData: (force?: boolean) => Promise<boolean>;
 }
 
 const TripContext = createContext<TripContextType | undefined>(undefined);
@@ -122,10 +124,11 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         }
     }, [selectedTripId]); // selectedTripId만 의존성으로 사용
 
-    // 초기 로드 (옛 datetime 형식의 날짜를 YYYY-MM-DD로 1회 정규화 후 trip 목록 조회)
+    // 초기 로드 (샘플 데이터 주입 및 옛 datetime 형식의 날짜 정규화 후 trip 목록 조회)
     useEffect(() => {
         let cancelled = false;
         (async () => {
+            await ensureDefaultSampleData();
             await runDateNormalizationMigration();
             if (!cancelled) await fetchTrips();
         })();
@@ -146,6 +149,13 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
         console.log("refreshTrips 완료");
     }, [fetchTrips]);
 
+    const loadSampleData = useCallback(async (force: boolean = true) => {
+        setLoading(true);
+        const success = await ensureDefaultSampleData(force);
+        await fetchTrips();
+        return success;
+    }, [fetchTrips]);
+
     return (
         <TripContext.Provider
             value={{
@@ -155,6 +165,7 @@ export function TripProvider({ children }: { children: React.ReactNode }) {
                 loading,
                 setSelectedTripId,
                 refreshTrips,
+                loadSampleData,
             }}
         >
             {children}

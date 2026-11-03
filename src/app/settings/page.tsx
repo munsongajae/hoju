@@ -67,7 +67,7 @@ export default function SettingsPage() {
     const [geminiApiKeyInput, setGeminiApiKeyInput] = useState("");
     const [showGeminiKey, setShowGeminiKey] = useState(false);
     const dateLocale = language === "en" ? enUS : ko;
-    const { selectedTripId, selectedTrip, trips, setSelectedTripId, refreshTrips } = useTrip();
+    const { selectedTripId, selectedTrip, trips, setSelectedTripId, refreshTrips, loadSampleData } = useTrip();
     const [deletingTripId, setDeletingTripId] = useState<string | null>(null);
     const [tripInfoDialogOpen, setTripInfoDialogOpen] = useState(false);
 
@@ -1534,6 +1534,24 @@ export default function SettingsPage() {
                                             {t("settings.data.importAll")}
                                         </Button>
                                     </div>
+                                    <Button
+                                        onClick={async () => {
+                                            if (confirm("기본 샘플 데이터('호주 한달 살기')를 로드하시겠습니까?\n기존 샘플 데이터가 최신 샘플로 초기화됩니다.")) {
+                                                const ok = await loadSampleData(true);
+                                                if (ok) {
+                                                    alert("기본 샘플 데이터를 성공적으로 불러왔습니다.");
+                                                } else {
+                                                    alert("샘플 데이터 로드 중 오류가 발생했습니다.");
+                                                }
+                                            }
+                                        }}
+                                        variant="secondary"
+                                        className="w-full h-8 gap-1 text-xs px-2"
+                                        size="sm"
+                                    >
+                                        <Sparkles className="w-4 h-4 text-amber-500" />
+                                        기본 샘플 데이터 불러오기 (호주 한달 살기)
+                                    </Button>
                                 </div>
 
                                 <Separator />
